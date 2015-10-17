@@ -22,7 +22,7 @@ void main(void) {
 	vec3 R = normalize(reflect(light_vector, fsIn.normal));
 	float cos = clamp(dot(R, eye_vector), 0, 1);
 
-	vec3 reflectionColor = clamp((vec3(0.8, 0.8, 1.0) * 20 * pow(cos,3))/(distance*distance), 0, 1);
+	vec3 reflectionColor = clamp((vec3(0.8, 0.8, 1.0) * 20 * pow(cos,5))/(distance*distance), 0, 1);
 
 	
 	vec3 eyeVecCorr = normalize(vec3(0.0, 0.0, 0.0) - fsIn.position);
@@ -33,8 +33,10 @@ void main(void) {
 
 	vec3 specularColor = clamp((vec3(1.0, 0.7, 0.3) * 10 * pow(cosCorr,20))/(distanceCorr*distanceCorr), 0, 1);	
 
-	color = vec4(vec3(0.0,
-					  0.0,
-					  0.5*texture(texDisplacement, fsIn.textureCoord).r)*fsIn.normal.y
+	float texColor = texture(texDisplacement, fsIn.textureCoord).r;
+
+	color = vec4(vec3(0.2*(1-texColor) + 0.1*texColor,
+					  0.01*(1-texColor) + 0.1*texColor,
+					  0.5*(1-texColor) + 0.6*texColor)*fsIn.normal.y
 					  + specularColor + reflectionColor, 1.0);
 }
