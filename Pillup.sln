@@ -1,0 +1,47 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "The_Larinx", "The_Larinx\The_Larinx.vcxproj", "{868581C3-4962-4A26-9303-20181104B569}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Rain", "Rain\Rain.vcxproj", "{40C500BA-4A94-4C6C-875E-839A51362A04}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Water", "Water\Water.vcxproj", "{8F360CF2-F1FE-4B99-9965-522C4889450E}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Bezier", "Bezier\Bezier.vcxproj", "{E18AC19B-69A0-4D7E-8852-848BE78712CA}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WaterNormalMap", "WaterNormalMap\WaterNormalMap.vcxproj", "{5C28D3F8-3D3F-49FE-90CE-6554C384781A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{868581C3-4962-4A26-9303-20181104B569}.Debug|Win32.ActiveCfg = Debug|Win32
+		{868581C3-4962-4A26-9303-20181104B569}.Debug|Win32.Build.0 = Debug|Win32
+		{868581C3-4962-4A26-9303-20181104B569}.Release|Win32.ActiveCfg = Release|Win32
+		{868581C3-4962-4A26-9303-20181104B569}.Release|Win32.Build.0 = Release|Win32
+		{40C500BA-4A94-4C6C-875E-839A51362A04}.Debug|Win32.ActiveCfg = Debug|Win32
+		{40C500BA-4A94-4C6C-875E-839A51362A04}.Debug|Win32.Build.0 = Debug|Win32
+		{40C500BA-4A94-4C6C-875E-839A51362A04}.Release|Win32.ActiveCfg = Release|Win32
+		{40C500BA-4A94-4C6C-875E-839A51362A04}.Release|Win32.Build.0 = Release|Win32
+		{8F360CF2-F1FE-4B99-9965-522C4889450E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{8F360CF2-F1FE-4B99-9965-522C4889450E}.Debug|Win32.Build.0 = Debug|Win32
+		{8F360CF2-F1FE-4B99-9965-522C4889450E}.Release|Win32.ActiveCfg = Release|Win32
+		{8F360CF2-F1FE-4B99-9965-522C4889450E}.Release|Win32.Build.0 = Release|Win32
+		{E18AC19B-69A0-4D7E-8852-848BE78712CA}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E18AC19B-69A0-4D7E-8852-848BE78712CA}.Debug|Win32.Build.0 = Debug|Win32
+		{E18AC19B-69A0-4D7E-8852-848BE78712CA}.Release|Win32.ActiveCfg = Release|Win32
+		{E18AC19B-69A0-4D7E-8852-848BE78712CA}.Release|Win32.Build.0 = Release|Win32
+		{5C28D3F8-3D3F-49FE-90CE-6554C384781A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5C28D3F8-3D3F-49FE-90CE-6554C384781A}.Debug|Win32.Build.0 = Debug|Win32
+		{5C28D3F8-3D3F-49FE-90CE-6554C384781A}.Release|Win32.ActiveCfg = Release|Win32
+		{5C28D3F8-3D3F-49FE-90CE-6554C384781A}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(Performance) = preSolution
+		HasPerformanceSessions = true
+	EndGlobalSection
+EndGlobal
