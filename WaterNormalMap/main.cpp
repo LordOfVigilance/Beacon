@@ -19,6 +19,7 @@ struct {
 	GLint lightPos;
 	GLint lightColor;
 	GLint eyePos;
+	GLint lightPosCorrect;
 } uniforms;
 
 struct ImagePBM {
@@ -59,6 +60,7 @@ int main(void) {
 	uniforms.lightColor = glGetUniformLocation(program, "lightColor");
 	uniforms.lightPos = glGetUniformLocation(program, "lightPos");
 	uniforms.eyePos = glGetUniformLocation(program, "eyePos");
+	uniforms.lightPosCorrect = glGetUniformLocation(program, "lightPosCorrect");
 
 	GLuint simpleProgram = createProgram("simplePass.vert", NULL, NULL, NULL, "simplePass.frag");
 
@@ -94,7 +96,7 @@ int main(void) {
 	camera.rotation = glm::vec2();
 	camera.translation = glm::vec3();
 	
-	glm::vec4 lightPos(0.0, 0.0, 100000.0, 1.0);
+	glm::vec4 lightPos(0.0, -10.0, -50.0, 1.0);
 	glm::vec3 lightColor(1.0, 0.3, 0.2);
 	GLfloat lightPower(30.0);
 
@@ -132,11 +134,14 @@ int main(void) {
 		
 		glm::vec4 mvpLightPos = lightPos*mvp;
 		glm::vec4 mvpEyePos = glm::vec4(eye, 1.0)*mvp;
+		glm::vec4 mvpLightPosCorrect = mvp*lightPos;
 		glUniform1f(uniforms.lightPower, lightPower);
 		glUniform3fv(uniforms.lightPos, 1, &mvpLightPos[0]);
 		glUniform3fv(uniforms.lightColor, 1, &lightColor[0]);
 		
 		glUniform3fv(uniforms.lightPos, 1, &mvpEyePos[0]);
+		
+		glUniform3fv(uniforms.lightPosCorrect, 1, &mvpLightPosCorrect[0]);
 
 		//glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -145,7 +150,7 @@ int main(void) {
 		glUseProgram(simpleProgram);
 
 		glUniformMatrix4fv(0, 1, GL_FALSE, &mvp[0][0]);
-		glUniform4fv(1, 1, &mvpLightPos[0]);
+		glUniform4fv(1, 1, &mvpLightPosCorrect[0]);
 		glDrawArrays(GL_POINTS, 0, 1);
 
 		glfwPollEvents();

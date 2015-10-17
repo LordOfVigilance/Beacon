@@ -7,6 +7,7 @@ uniform vec3 lightPos;
 uniform float lightPower;
 uniform vec3 lightColor;
 uniform vec3 eyePos;
+uniform vec3 lightPosCorrect;
 
 in GS_OUT {
 	vec2 textureCoord;
@@ -15,15 +16,25 @@ in GS_OUT {
 } fsIn;
 
 void main(void) {
-	vec3 eye_vector = normalize(eyePos - fsIn.position);
+	vec3 eye_vector = normalize(vec3(0.0, 0.0, 10.0) - fsIn.position);
 	vec3 light_vector = normalize(lightPos - fsIn.position);
 	float distance = length(eyePos - lightPos);
 	vec3 R = normalize(reflect(light_vector, fsIn.normal));
-	float cos = dot(R, eye_vector);
+	float cos = clamp(dot(R, eye_vector), 0, 1);
 
-	vec3 specularColor = clamp((lightColor * lightPower * cos)/(distance*distance), 0, 1);
+	vec3 reflectionColor = clamp((vec3(0.8, 0.8, 1.0) * 20 * pow(cos,3))/(distance*distance), 0, 1);
 
-	color = vec4(vec3(texture(texDisplacement, fsIn.textureCoord).r*0.5,
-					  texture(texDisplacement, fsIn.textureCoord).r*0.5,
-					  texture(texDisplacement, fsIn.textureCoord).r)*fsIn.normal.y + specularColor, 1.0);
+	
+	vec3 eyeVecCorr = normalize(vec3(0.0, 0.0, 0.0) - fsIn.position);
+	vec3 lightVecCorr = normalize(lightPosCorrect - fsIn.position);
+	float distanceCorr = length(lightPos);
+	vec3 reflectCorr = normalize(reflect(-lightVecCorr, fsIn.normal));
+	float cosCorr = clamp(dot(eyeVecCorr, reflectCorr), 0, 1);
+
+	vec3 specularColor = clamp((vec3(1.0, 0.7, 0.3) * 10 * pow(cosCorr,20))/(distanceCorr*distanceCorr), 0, 1);	
+
+	color = vec4(vec3(0.0,
+					  0.0,
+					  0.5*texture(texDisplacement, fsIn.textureCoord).r)*fsIn.normal.y
+					  + specularColor + reflectionColor, 1.0);
 }
