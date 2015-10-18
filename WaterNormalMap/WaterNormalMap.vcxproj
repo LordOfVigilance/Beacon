@@ -82,6 +82,9 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="rain.frag" />
+    <None Include="rain.geom" />
+    <None Include="rain.vert" />
     <None Include="simplePass.frag" />
     <None Include="tex.frag" />
     <None Include="tex.vert" />

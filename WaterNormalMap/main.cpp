@@ -9,6 +9,8 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 
+#include <vector>
+
 struct {
 	GLint mvp;
 	GLint dmapDepth;
@@ -43,6 +45,7 @@ void shaderFromFileAndLink (GLenum, GLchar *, GLuint);
 std::string readFile (GLchar *);
 GLuint createShaderFromCode (GLenum, std::string);
 ImagePBM readPBMFile(GLchar *);
+bool loadObjIndexed(const char *, std::vector<GLfloat>&, std::vector<GLfloat>&, std::vector<GLushort>&);
 
 bool terminated = false;
 
@@ -63,6 +66,7 @@ int main(void) {
 	uniforms.lightPosCorrect = glGetUniformLocation(program, "lightPosCorrect");
 
 	GLuint simpleProgram = createProgram("simplePass.vert", NULL, NULL, NULL, "simplePass.frag");
+	GLuint rainProgram = createProgram("rain.vert", "rain.geom", NULL, NULL, "rain.frag");
 
 	glPatchParameteri(GL_PATCH_VERTICES, 4);
 	glPointSize(16);
@@ -71,7 +75,7 @@ int main(void) {
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
 
-	ImagePBM depthMap = readPBMFile("Water.pbm");
+	ImagePBM depthMap = readPBMFile("Textures/Water.pbm");
 	GLuint depthMapID;
 	glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &depthMapID);
@@ -82,7 +86,7 @@ int main(void) {
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, depthMap.width, depthMap.height, GL_RED, GL_UNSIGNED_BYTE, depthMap.data);
 	delete [] depthMap.data;
 	
-	ImagePBM colorMap = readPBMFile("colorMap.pbm");
+	ImagePBM colorMap = readPBMFile("Textures/colorMap.pbm");
 	GLuint colorMapID;
 	glActiveTexture(GL_TEXTURE1);
 	glGenTextures(1, &colorMapID);
@@ -92,6 +96,41 @@ int main(void) {
 	// Specify the data for the texture
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorMap.width, colorMap.height, GL_RED, GL_UNSIGNED_BYTE, colorMap.data);
 	delete [] colorMap.data;
+
+	
+
+	std::vector<GLfloat> monkey_vertices;
+	std::vector<GLfloat> monkey_normals;
+	std::vector<GLushort> monkey_indices;
+
+	loadObjIndexed("Models/monkey.obj", monkey_vertices, monkey_normals, monkey_indices);	
+	
+	//Create a vertex attribute object
+	GLuint rainVao = 0;
+	glGenVertexArrays(1, &rainVao);
+	glBindVertexArray(rainVao);
+
+	//Create a buffer from openGL
+	GLuint rainVbo = 1;
+	glGenBuffers(1, &rainVbo);
+	glBindBuffer(GL_ARRAY_BUFFER, rainVbo);
+
+	//Allocate space from openGL for the rain attributes
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * monkey_vertices.size(), NULL, GL_STATIC_DRAW);
+
+	GLuint offset = 0;
+	//Fill each attribue with data
+	glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(GLfloat) * monkey_vertices.size(), monkey_vertices.data());
+
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glEnableVertexAttribArray(0);
+
+	GLuint vertex_indices_buffer;
+	glGenBuffers(1, &vertex_indices_buffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertex_indices_buffer);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort) * monkey_indices.size(), monkey_indices.data(), GL_STATIC_DRAW);
+
 
 	camera.rotation = glm::vec2();
 	camera.translation = glm::vec3();
@@ -122,8 +161,25 @@ int main(void) {
 
 		viewMatrix = glm::rotate(viewMatrix, camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
 		viewMatrix = glm::translate(viewMatrix, camera.translation);
-		mvp = perspectiveMatrix*viewMatrix*modelMatrix;
+		mvp = perspectiveMatrix*viewMatrix*modelMatrix;		
 
+		glm::vec4 mvpLightPos = lightPos*mvp;
+		glm::vec4 mvpEyePos = glm::vec4(eye, 1.0)*mvp;
+		glm::vec4 mvpLightPosCorrect = mvp*lightPos;
+
+		//Monkey
+		glUseProgram (rainProgram);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertex_indices_buffer);
+		glBindVertexArray (rainVao);
+
+		glUniformMatrix4fv(4, 1, GL_FALSE, &mvp[0][0]);
+		glUniform4fv(5, 1, &mvpLightPosCorrect[0]);
+		glUniform3fv(6, 1, &lightColor[0]);
+		glUniform1f(7, lightPower);
+
+		glDrawElements(GL_TRIANGLES, monkey_indices.size(), GL_UNSIGNED_SHORT, (void *) 0);
+
+		//Water
 		glUseProgram(program);
 		glBindVertexArray(vao);
 
@@ -132,9 +188,6 @@ int main(void) {
 		glUniformMatrix4fv(uniforms.mvp, 1, GL_FALSE, &mvp[0][0]);
 		glUniform2fv(uniforms.texOffset, 1, &texOffset[0]);
 		
-		glm::vec4 mvpLightPos = lightPos*mvp;
-		glm::vec4 mvpEyePos = glm::vec4(eye, 1.0)*mvp;
-		glm::vec4 mvpLightPosCorrect = mvp*lightPos;
 		glUniform1f(uniforms.lightPower, lightPower);
 		glUniform3fv(uniforms.lightPos, 1, &mvpLightPos[0]);
 		glUniform3fv(uniforms.lightColor, 1, &lightColor[0]);
@@ -143,10 +196,9 @@ int main(void) {
 		
 		glUniform3fv(uniforms.lightPosCorrect, 1, &mvpLightPosCorrect[0]);
 
-		//glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
 		glDrawArraysInstanced(GL_PATCHES, 0, 4, 64*64);
 
+		//Light
 		glUseProgram(simpleProgram);
 
 		glUniformMatrix4fv(0, 1, GL_FALSE, &mvp[0][0]);
@@ -352,4 +404,69 @@ GLuint createShaderFromCode (GLenum shaderType, std::string code) {
 	}
 
 	return shaderInt;
+}
+
+bool loadObjIndexed(const char * obj_file_name, std::vector<GLfloat>& vertex_position, std::vector<GLfloat>& vertex_normal, std::vector<GLushort>& vertex_indices) {
+	
+	FILE * obj_file = fopen (obj_file_name, "r");
+	
+	//File not opened
+	if ( obj_file == NULL ) {
+		fprintf(stderr, "ERROR: %s could not be opened", obj_file_name);
+
+		return false;
+	}
+	//File opened
+	else {
+		while ( 1 ) {
+
+			char lineHeader[128];
+			int res = fscanf ( obj_file, "%s", lineHeader );
+			if ( res == EOF )
+				break;
+
+			if ( strcmp (lineHeader, "o") == 0 ) {			//new object
+				printf("object\n");
+				continue;
+			}
+
+			else if ( strcmp (lineHeader, "v") == 0 ) {	//new vertex
+				GLfloat x, y, z;
+				fscanf(obj_file, "%f %f %f\n", &x, &y, &z);
+				vertex_position.push_back(x);
+				vertex_position.push_back(y);
+				vertex_position.push_back(z);
+				vertex_position.push_back(1.0f);
+				printf("Vertex position %f %f %f\n", x, y, z);
+			}
+
+			else if ( strcmp (lineHeader, "vn") == 0 ) { //new vertex normal
+				GLfloat x, y, z;
+				fscanf(obj_file, "%f %f %f\n", &x, &y, &z);
+				vertex_normal.push_back(x);
+				vertex_normal.push_back(y);
+				vertex_normal.push_back(z);
+				vertex_normal.push_back(1.0f);
+			}
+			
+			else if ( strcmp (lineHeader, "s") == 0 ) {
+				char comment_buffer[128];
+				fgets(comment_buffer, 128, obj_file);
+			}
+
+			else if ( strcmp (lineHeader, "f") == 0 ) {
+				GLuint fv1, fn1, fv2, fn2, fv3, fn3;
+				fscanf (obj_file, "%u//%u %u//%u %u//%u\n", &fv1, &fn1, &fv2, &fn2, &fv3, &fn3);
+				vertex_indices.push_back((short)fv1 - 1);
+				vertex_indices.push_back((short)fv2 - 1);
+				vertex_indices.push_back((short)fv3 - 1);
+				printf("Vertex indices %u %u %u\n", fv1 - 1, fv2 - 1, fv3 - 1);
+			} else {
+				char comment_buffer[128];
+				fgets(comment_buffer, 128, obj_file);
+			}
+		}
+	}
+
+	return true;
 }

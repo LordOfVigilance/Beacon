@@ -44,6 +44,15 @@
     <None Include="simplePass.frag">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="rain.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="rain.geom">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="rain.frag">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="simplePass.vert">
