@@ -22,6 +22,7 @@ struct {
 	GLint lightColor;
 	GLint eyePos;
 	GLint lightPosCorrect;
+	GLint offset;
 } uniforms;
 
 struct ImagePBM {
@@ -56,6 +57,7 @@ int main(void) {
 	GLuint program = createProgram("waterNM.vert", "waterNM.geom", "waterNM.tcs", "waterNM.tes", "waterNM.frag");
 	uniforms.dmapDepth = glGetUniformLocation(program, "dmap_depth");
 	uniforms.mvp = glGetUniformLocation(program, "mvp");
+	uniforms.offset = glGetUniformLocation(program, "offset");
 	uniforms.texDepthMap = glGetUniformLocation(program, "texDisplacement");
 	uniforms.texOffset = glGetUniformLocation(program, "texOffset");
 	uniforms.sinValue = glGetUniformLocation(program, "sinValue");
@@ -103,7 +105,7 @@ int main(void) {
 	std::vector<GLfloat> monkey_normals;
 	std::vector<GLushort> monkey_indices;
 
-	loadObjIndexed("Models/monkey.obj", monkey_vertices, monkey_normals, monkey_indices);	
+	loadObjIndexed("Models/Land.obj", monkey_vertices, monkey_normals, monkey_indices);	
 	
 	//Create a vertex attribute object
 	GLuint rainVao = 0;
@@ -142,12 +144,18 @@ int main(void) {
 	glm::vec3 eye(0.0, 0.0, 3.0);
 	glm::vec3 center(0.0, 0.0, 0.0);
 	glm::vec3 up(0.0, 1.0, 0.0);
-	glm::mat4 modelMatrix(1.0f);
+	glm::mat4 modelMatrixLight(1.0f);
+	glm::mat4 modelMatrixWater(1.0f);
+	glm::mat4 modelMatrixLand(1.0f);
+	modelMatrixLand = glm::scale(modelMatrixLand, glm::vec3(17.0, 17.0, 17.0));
+	modelMatrixLand = glm::translate(modelMatrixLand, glm::vec3(0.0, -0.2, 0.0));
 	glm::mat4 viewMatrix = glm::lookAt(eye, center, up);
 	glm::mat4 perspectiveMatrix = glm::perspective(30.0f, 16.0f/9.0f, 0.1f, 1000.0f);
-	glm::mat4 mvp = perspectiveMatrix * viewMatrix * modelMatrix;
+	glm::mat4 mvpWater = perspectiveMatrix * viewMatrix * modelMatrixWater;
+	glm::mat4 mvpLand = perspectiveMatrix * viewMatrix * modelMatrixLand;
+	glm::mat4 mvpLight = perspectiveMatrix * viewMatrix * modelMatrixLight;
 	
-	GLfloat dmapDepth = 2;
+	GLfloat dmapDepth = 1.5;
 
 	while(!glfwWindowShouldClose(window) && !terminated) {
 
@@ -161,18 +169,20 @@ int main(void) {
 
 		viewMatrix = glm::rotate(viewMatrix, camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
 		viewMatrix = glm::translate(viewMatrix, camera.translation);
-		mvp = perspectiveMatrix*viewMatrix*modelMatrix;		
+		mvpLight = perspectiveMatrix*viewMatrix*modelMatrixLight;
+		mvpLand = perspectiveMatrix*viewMatrix*modelMatrixLand;
+		mvpWater = perspectiveMatrix*viewMatrix*modelMatrixWater;
 
-		glm::vec4 mvpLightPos = lightPos*mvp;
-		glm::vec4 mvpEyePos = glm::vec4(eye, 1.0)*mvp;
-		glm::vec4 mvpLightPosCorrect = mvp*lightPos;
+		glm::vec4 mvpLightPos = lightPos*mvpLight;
+		glm::vec4 mvpEyePos = glm::vec4(eye, 1.0)*mvpLight;
+		glm::vec4 mvpLightPosCorrect = mvpLight*lightPos;
 
-		//Monkey
+		//Land
 		glUseProgram (rainProgram);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertex_indices_buffer);
 		glBindVertexArray (rainVao);
 
-		glUniformMatrix4fv(4, 1, GL_FALSE, &mvp[0][0]);
+		glUniformMatrix4fv(4, 1, GL_FALSE, &mvpLand[0][0]);
 		glUniform4fv(5, 1, &mvpLightPosCorrect[0]);
 		glUniform3fv(6, 1, &lightColor[0]);
 		glUniform1f(7, lightPower);
@@ -185,7 +195,7 @@ int main(void) {
 
 		glUniform1f(uniforms.dmapDepth, dmapDepth);
 		glUniform1f(uniforms.sinValue, sinValue);
-		glUniformMatrix4fv(uniforms.mvp, 1, GL_FALSE, &mvp[0][0]);
+		glUniformMatrix4fv(uniforms.mvp, 1, GL_FALSE, &mvpWater[0][0]);
 		glUniform2fv(uniforms.texOffset, 1, &texOffset[0]);
 		
 		glUniform1f(uniforms.lightPower, lightPower);
@@ -196,12 +206,12 @@ int main(void) {
 		
 		glUniform3fv(uniforms.lightPosCorrect, 1, &mvpLightPosCorrect[0]);
 
-		glDrawArraysInstanced(GL_PATCHES, 0, 4, 64*64);
+		glDrawArraysInstanced(GL_PATCHES, 0, 4, 256*256);
 
 		//Light
 		glUseProgram(simpleProgram);
 
-		glUniformMatrix4fv(0, 1, GL_FALSE, &mvp[0][0]);
+		glUniformMatrix4fv(0, 1, GL_FALSE, &mvpLight[0][0]);
 		glUniform4fv(1, 1, &mvpLightPosCorrect[0]);
 		glDrawArrays(GL_POINTS, 0, 1);
 
@@ -269,6 +279,9 @@ GLFWwindow* openGLInit(GLint width, GLint height, GLchar* windowTitle) {
 
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	//glEnable(GL_CULL_FACE);
 	//glCullFace(GL_BACK);
@@ -437,7 +450,6 @@ bool loadObjIndexed(const char * obj_file_name, std::vector<GLfloat>& vertex_pos
 				vertex_position.push_back(y);
 				vertex_position.push_back(z);
 				vertex_position.push_back(1.0f);
-				printf("Vertex position %f %f %f\n", x, y, z);
 			}
 
 			else if ( strcmp (lineHeader, "vn") == 0 ) { //new vertex normal
@@ -460,7 +472,6 @@ bool loadObjIndexed(const char * obj_file_name, std::vector<GLfloat>& vertex_pos
 				vertex_indices.push_back((short)fv1 - 1);
 				vertex_indices.push_back((short)fv2 - 1);
 				vertex_indices.push_back((short)fv3 - 1);
-				printf("Vertex indices %u %u %u\n", fv1 - 1, fv2 - 1, fv3 - 1);
 			} else {
 				char comment_buffer[128];
 				fgets(comment_buffer, 128, obj_file);

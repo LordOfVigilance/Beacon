@@ -35,8 +35,13 @@ void main(void) {
 
 	float texColor = texture(texDisplacement, fsIn.textureCoord).r;
 
+	float alpha = (1 - clamp(dot(fsIn.normal, normalize(-fsIn.position)), 0, 1))/4 - 0.1;
+	float alpha2 = clamp(dot(fsIn.normal, normalize(-fsIn.position)), 0, 1);
+
+	alpha = max(alpha, alpha2);
+
 	color = vec4(vec3(0.2*(1-texColor) + 0.1*texColor,
 					  0.01*(1-texColor) + 0.1*texColor,
 					  0.5*(1-texColor) + 0.6*texColor)*fsIn.normal.y
-					  + specularColor + reflectionColor, 1.0);
+					  + specularColor + reflectionColor, alpha);
 }
