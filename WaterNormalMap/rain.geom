@@ -4,7 +4,7 @@ layout (triangles) in;
 
 layout (triangle_strip, max_vertices = 3) out;
 
-layout (location = 5) uniform vec4 lightPos;
+layout (location = 5) uniform vec3 lightPos;
 layout (location = 6) uniform vec3 lightColor;
 layout (location = 7) uniform float lightPower;
 
@@ -29,7 +29,7 @@ void main (void) {
 	vec3 eyeVec = normalize(vec3(0.0, 0.0, 0.0) - gl_in[0].gl_Position.xyz);
 	vec3 reflectVec = normalize(reflect(-lightVec.xyz, faceNormal.xyz));
 	float cosSpec = clamp(dot(eyeVec, reflectVec), 0, 1);
-	vec4 specColor = clamp(vec4(vec3(1.0, 1.0, 1.0)*1000*pow(cosSpec, 50)/(distance*distance), 1.0), 0, 1);
+	vec4 specColor = clamp(vec4(vec3(1.0, 1.0, 1.0)*100*pow(cosSpec, 10)/(distance), 1.0), 0, 1);
 
 	for (i = 0; i < gl_in.length; i++) {
 		fragment.color = diffuseColor + specColor + vec4(0.4, 0.6, 0.4, 1.0)*faceNormal.y*faceNormal.x;

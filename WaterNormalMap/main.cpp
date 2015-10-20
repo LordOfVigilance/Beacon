@@ -137,9 +137,9 @@ int main(void) {
 	camera.rotation = glm::vec2();
 	camera.translation = glm::vec3();
 	
-	glm::vec4 lightPos(0.0, -10.0, -50.0, 1.0);
+	glm::vec4 lightPos(0.0, -100.0, -500.0, 1.0);
 	glm::vec3 lightColor(1.0, 0.3, 0.2);
-	GLfloat lightPower(30.0);
+	GLfloat lightPower(300.0);
 
 	glm::vec3 eye(0.0, 0.0, 3.0);
 	glm::vec3 center(0.0, 0.0, 0.0);
@@ -282,6 +282,8 @@ GLFWwindow* openGLInit(GLint width, GLint height, GLchar* windowTitle) {
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	glClearColor(1.0, 1.0, 1.0, 1.0);
 
 	//glEnable(GL_CULL_FACE);
 	//glCullFace(GL_BACK);
