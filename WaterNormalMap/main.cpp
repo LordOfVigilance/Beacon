@@ -137,13 +137,13 @@ int main(void) {
 	camera.rotation = glm::vec2();
 	camera.translation = glm::vec3();
 	
-	glm::vec4 lightPos(0.0, -100.0, -500.0, 1.0);
+	glm::vec4 lightPos(0.0, 100.0, -500.0, 1.0);
 	glm::vec3 lightColor(1.0, 0.3, 0.2);
 	GLfloat lightPower(300.0);
 
-	glm::vec3 eye(0.0, 0.0, 3.0);
-	glm::vec3 center(0.0, 0.0, 0.0);
-	glm::vec3 up(0.0, 1.0, 0.0);
+	glm::vec3 eye(0.0, 8.0, 3.0);
+	glm::vec3 center(0.0, 8.0, 0.0);
+	glm::vec3 up(0.0, -1.0, 0.0);
 	glm::mat4 modelMatrixLight(1.0f);
 	glm::mat4 modelMatrixWater(1.0f);
 	glm::mat4 modelMatrixLand(1.0f);
@@ -305,19 +305,19 @@ void keyCallback (GLFWwindow * window, int key, int scancode, int action, int mo
 			camera.translation.z += 0.1;
 		
 		else if (key == GLFW_KEY_A)
-			camera.translation.x -= 0.1;
+			camera.translation.x += 0.1;
 		
 		else if (key == GLFW_KEY_S)
 			camera.translation.z -= 0.1;
 		
 		else if (key == GLFW_KEY_D)
-			camera.translation.x += 0.1;
+			camera.translation.x -= 0.1;
 		
 		else if (key == GLFW_KEY_X)
-			camera.translation.y += 0.1;
+			camera.translation.y -= 0.1;
 		
 		else if (key == GLFW_KEY_Z)
-			camera.translation.y -= 0.1;
+			camera.translation.y += 0.1;
 
 		else if (key == GLFW_KEY_V)
 			texOffset.x += 0.1;
