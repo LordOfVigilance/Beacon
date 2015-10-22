@@ -53,6 +53,12 @@
     <None Include="rain.frag">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="button.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="button.vert">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="simplePass.vert">

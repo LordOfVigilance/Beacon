@@ -82,6 +82,8 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="button.frag" />
+    <None Include="button.vert" />
     <None Include="rain.frag" />
     <None Include="rain.geom" />
     <None Include="rain.vert" />

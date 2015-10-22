@@ -69,6 +69,7 @@ int main(void) {
 
 	GLuint simpleProgram = createProgram("simplePass.vert", NULL, NULL, NULL, "simplePass.frag");
 	GLuint rainProgram = createProgram("rain.vert", "rain.geom", NULL, NULL, "rain.frag");
+	GLuint buttonProgram = createProgram("button.vert", NULL, NULL, NULL, "button.frag");
 
 	glPatchParameteri(GL_PATCH_VERTICES, 4);
 	glPointSize(16);
@@ -157,6 +158,12 @@ int main(void) {
 	
 	GLfloat dmapDepth = 1.5;
 
+	int windowWidth, windowHeight;
+	glfwGetWindowSize(window, &windowWidth, &windowHeight);
+
+	glm::vec2 buttonSize = glm::vec2(100.0f/windowWidth, 100.0f/windowHeight);
+	glm::vec2 buttonOffset = glm::vec2(100.0f/windowWidth, 100.0f/windowHeight);
+
 	while(!glfwWindowShouldClose(window) && !terminated) {
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -214,6 +221,12 @@ int main(void) {
 		glUniformMatrix4fv(0, 1, GL_FALSE, &mvpLight[0][0]);
 		glUniform4fv(1, 1, &mvpLightPosCorrect[0]);
 		glDrawArrays(GL_POINTS, 0, 1);
+
+		//Button
+		glUseProgram(buttonProgram);
+		glUniform2fv(0, 1, &buttonSize[0]);
+		glUniform2fv(1, 1, &buttonOffset[0]);
+		glDrawArrays(GL_QUADS, 0, 4);
 
 		glfwPollEvents();
 		glfwSwapBuffers(window);
