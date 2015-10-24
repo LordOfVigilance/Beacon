@@ -11,6 +11,10 @@
 
 #include <vector>
 
+#include "DreamButton.h"
+#include "DreamSlider.h"
+#include "DreamClickable.h"
+
 struct {
 	GLint mvp;
 	GLint dmapDepth;
@@ -36,19 +40,29 @@ struct {
 	glm::vec3 translation;
 } camera;
 
+void checkForHover(double, double);
+
+std::vector<DreamClickable*> buttonList;
 
 glm::vec2 texOffset(1.5, 0.0);
 
 GLFWwindow* openGLInit(GLint, GLint, GLchar*);
 void keyCallback (GLFWwindow*, int, int, int, int);
+void mouseMoveCallback (GLFWwindow*, double, double);
+void mouseButtonCallback (GLFWwindow*, int, int, int);
 GLuint createProgram (GLchar *, GLchar *, GLchar *, GLchar *, GLchar *);
 void shaderFromFileAndLink (GLenum, GLchar *, GLuint);
 std::string readFile (GLchar *);
 GLuint createShaderFromCode (GLenum, std::string);
 ImagePBM readPBMFile(GLchar *);
+void createTexture(GLchar *, GLenum);
 bool loadObjIndexed(const char *, std::vector<GLfloat>&, std::vector<GLfloat>&, std::vector<GLushort>&);
 
+void printFunction();
+
 bool terminated = false;
+bool buttonPressed = false;
+bool mousePressed = false;
 
 int main(void) {
 
@@ -78,30 +92,9 @@ int main(void) {
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
 
-	ImagePBM depthMap = readPBMFile("Textures/Water.pbm");
-	GLuint depthMapID;
-	glActiveTexture(GL_TEXTURE0);
-	glGenTextures(1, &depthMapID);
-	glBindTexture(GL_TEXTURE_2D, depthMapID);
-	// Allocate storage for the texture data
-	glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, depthMap.width, depthMap.height);
-	// Specify the data for the texture
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, depthMap.width, depthMap.height, GL_RED, GL_UNSIGNED_BYTE, depthMap.data);
-	delete [] depthMap.data;
+	createTexture("Textures/Water.pbm", GL_TEXTURE0);
+	createTexture("Textures/colorMap.pbm", GL_TEXTURE1);
 	
-	ImagePBM colorMap = readPBMFile("Textures/colorMap.pbm");
-	GLuint colorMapID;
-	glActiveTexture(GL_TEXTURE1);
-	glGenTextures(1, &colorMapID);
-	glBindTexture(GL_TEXTURE_2D, colorMapID);
-	// Allocate storage for the texture data
-	glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, colorMap.width, colorMap.height);
-	// Specify the data for the texture
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorMap.width, colorMap.height, GL_RED, GL_UNSIGNED_BYTE, colorMap.data);
-	delete [] colorMap.data;
-
-	
-
 	std::vector<GLfloat> monkey_vertices;
 	std::vector<GLfloat> monkey_normals;
 	std::vector<GLushort> monkey_indices;
@@ -139,7 +132,7 @@ int main(void) {
 	camera.translation = glm::vec3();
 	
 	glm::vec4 lightPos(0.0, 100.0, -500.0, 1.0);
-	glm::vec3 lightColor(1.0, 0.3, 0.2);
+	glm::vec3 lightColor(0.5, 0.3, 0.2);
 	GLfloat lightPower(300.0);
 
 	glm::vec3 eye(0.0, 8.0, 3.0);
@@ -160,12 +153,42 @@ int main(void) {
 
 	int windowWidth, windowHeight;
 	glfwGetWindowSize(window, &windowWidth, &windowHeight);
+	
+	float buttonOffset[2] = {0.0f/windowWidth, 0.0f/windowHeight};
+	float buttonSize[2] = {100.0f/windowWidth, 100.0f/windowHeight};
+	float buttonColor[4] = {0.0f, 0.0f, 0.0f, 0.5f};
 
-	glm::vec2 buttonSize = glm::vec2(100.0f/windowWidth, 100.0f/windowHeight);
-	glm::vec2 buttonOffset = glm::vec2(100.0f/windowWidth, 100.0f/windowHeight);
+	DreamButton* button = new DreamButton(buttonOffset, buttonSize, buttonColor, printFunction);
+	
+	buttonOffset[0] = 200.0f/windowWidth;
+	DreamButton* button2 = new DreamButton(buttonOffset, buttonSize, buttonColor, printFunction);
+
+	float sliderOffset[2] = {400.0f/windowWidth, 0.0f/windowHeight};
+	float sliderSize[2] = {50.0f/windowWidth, 200.0f/windowHeight};
+	float sliderColor[4] = {0.0f, 0.0f, 0.0f, 0.5f};
+
+	DreamSlider* sliderColor1 = new DreamSlider(&lightColor[0], sliderOffset, sliderSize, sliderColor, 0.0f, 1.0f);
+	
+	sliderOffset[0] = 500.0f/windowWidth;
+
+	DreamSlider* sliderColor2 = new DreamSlider(&lightColor[1], sliderOffset, sliderSize, sliderColor, 0.0f, 1.0f);
+	
+	sliderOffset[0] = 600.0f/windowWidth;
+
+	DreamSlider* sliderColor3 = new DreamSlider(&lightColor[2], sliderOffset, sliderSize, sliderColor, 0.0f, 1.0f);	
+
+	sliderOffset[0] = 700.0f/windowWidth;
+
+	DreamSlider* sliderPower = new DreamSlider(&lightPower, sliderOffset, sliderSize, sliderColor, 0.0f, 50.0f);
+
+	buttonList.push_back(button);
+	buttonList.push_back(button2);
+	buttonList.push_back(sliderColor1);
+	buttonList.push_back(sliderColor2);
+	buttonList.push_back(sliderColor3);
+	buttonList.push_back(sliderPower);
 
 	while(!glfwWindowShouldClose(window) && !terminated) {
-
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		double time = glfwGetTime();
@@ -224,11 +247,17 @@ int main(void) {
 
 		//Button
 		glUseProgram(buttonProgram);
-		glUniform2fv(0, 1, &buttonSize[0]);
-		glUniform2fv(1, 1, &buttonOffset[0]);
-		glDrawArrays(GL_QUADS, 0, 4);
+		for(int i=0; i<buttonList.size(); i++) {
+			for(DreamRenderable* renderable : buttonList[i]->getRenderables()) {
+				glUniform2fv(0, 1, &renderable->getSize()[0]);
+				glUniform2fv(1, 1, &renderable->getOffset()[0]);
+				glUniform4fv(2, 1, &renderable->getColor()[0]);
+				glDrawArrays(GL_QUADS, 0, 4);
+			}
+		}
 
 		glfwPollEvents();
+
 		glfwSwapBuffers(window);
 	}
 
@@ -270,6 +299,19 @@ ImagePBM readPBMFile(GLchar * ppmFileName) {
 	return imageStruct;
 }
 
+void createTexture(GLchar * textureFileName, GLenum glTextureNum) {
+	ImagePBM colorMap = readPBMFile(textureFileName);
+	GLuint colorMapID;
+	glActiveTexture(glTextureNum);
+	glGenTextures(1, &colorMapID);
+	glBindTexture(GL_TEXTURE_2D, colorMapID);
+	// Allocate storage for the texture data
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, colorMap.width, colorMap.height);
+	// Specify the data for the texture
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorMap.width, colorMap.height, GL_RED, GL_UNSIGNED_BYTE, colorMap.data);
+	delete [] colorMap.data;
+}
+
 GLFWwindow* openGLInit(GLint width, GLint height, GLchar* windowTitle) {
 	if(!glfwInit()) {
 		fprintf(stderr, "GLFW could not be initialised");
@@ -286,6 +328,8 @@ GLFWwindow* openGLInit(GLint width, GLint height, GLchar* windowTitle) {
 
 	glfwMakeContextCurrent(window);	
 	glfwSetKeyCallback(window, keyCallback);
+	glfwSetCursorPosCallback(window, mouseMoveCallback);
+	glfwSetMouseButtonCallback(window, mouseButtonCallback);
 
 	glewExperimental = GL_TRUE;
 	glewInit();
@@ -309,34 +353,34 @@ void keyCallback (GLFWwindow * window, int key, int scancode, int action, int mo
 	if (action == GLFW_PRESS)
 	{
 		if (key == GLFW_KEY_E || key == GLFW_KEY_RIGHT)
-			camera.rotation.x -= 0.01;
+			camera.rotation.x -= 0.01f;
 
 		else if (key == GLFW_KEY_Q || key == GLFW_KEY_LEFT)
-			camera.rotation.x += 0.01;
+			camera.rotation.x += 0.01f;
 
 		else if (key == GLFW_KEY_W)
-			camera.translation.z += 0.1;
+			camera.translation.z += 0.1f;
 		
 		else if (key == GLFW_KEY_A)
-			camera.translation.x += 0.1;
+			camera.translation.x += 0.1f;
 		
 		else if (key == GLFW_KEY_S)
-			camera.translation.z -= 0.1;
+			camera.translation.z -= 0.1f;
 		
 		else if (key == GLFW_KEY_D)
-			camera.translation.x -= 0.1;
+			camera.translation.x -= 0.1f;
 		
 		else if (key == GLFW_KEY_X)
-			camera.translation.y -= 0.1;
+			camera.translation.y -= 0.1f;
 		
 		else if (key == GLFW_KEY_Z)
-			camera.translation.y += 0.1;
+			camera.translation.y += 0.1f;
 
 		else if (key == GLFW_KEY_V)
-			texOffset.x += 0.1;
+			texOffset.x += 0.1f;
 
 		else if (key == GLFW_KEY_C)
-			texOffset.x -= 0.1;
+			texOffset.x -= 0.1f;
 		
 		if (key ==  GLFW_KEY_ESCAPE)
 		{
@@ -344,6 +388,46 @@ void keyCallback (GLFWwindow * window, int key, int scancode, int action, int mo
 			terminated = true;
 		}
 	}
+}
+
+void mouseMoveCallback(GLFWwindow * window, double mouseX, double mouseY) {
+	int windowSize[2];
+	glfwGetWindowSize(window, &windowSize[0], &windowSize[1]);
+	checkForHover(mouseX*2/windowSize[0], mouseY*2/windowSize[1]);
+}
+
+void checkForHover(double mouseX, double mouseY) {
+	for(unsigned int i=0; i<buttonList.size(); i++) {
+		if(buttonList[i]->checkAndSetHovering(mouseX, mouseY)) {
+			if(mousePressed) {
+				buttonList[i]->mouseDown(mouseX, mouseY);
+			}
+		}
+	}
+}
+
+void mouseButtonCallback(GLFWwindow * window, int button, int action, int mods) {
+	int windowSize[2];
+	double mouseX, mouseY;
+
+	glfwGetCursorPos(window, &mouseX, &mouseY);
+	glfwGetWindowSize(window, &windowSize[0], &windowSize[1]);
+
+	mouseX /= windowSize[0]/2.0;
+	mouseY /= windowSize[1]/2.0;
+	
+	for(unsigned int i=0; i<buttonList.size(); i++) {
+		if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+			buttonList[i]->pointInAndExecute(mouseX, mouseY);
+			mousePressed = true;
+		} else if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+			mousePressed = false;
+		}
+	}
+}
+
+void printFunction() {
+	printf("I'm a button\n");
 }
 
 GLuint createProgram(GLchar * vert_shader, GLchar * geom_shader, GLchar * tes_control_shader, GLchar * tes_eval_shader, GLchar * frag_shader)

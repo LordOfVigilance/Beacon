@@ -79,6 +79,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="DreamButton.cpp" />
+    <ClCompile Include="DreamClickable.cpp" />
+    <ClCompile Include="DreamRenderable.cpp" />
+    <ClCompile Include="DreamSlider.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -98,6 +102,12 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="simplePass.vert" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="DreamButton.h" />
+    <ClInclude Include="DreamClickable.h" />
+    <ClInclude Include="DreamRenderable.h" />
+    <ClInclude Include="DreamSlider.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
