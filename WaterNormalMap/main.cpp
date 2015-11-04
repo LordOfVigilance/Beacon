@@ -14,6 +14,7 @@
 #include "DreamButton.h"
 #include "DreamSlider.h"
 #include "DreamClickable.h"
+#include "DreamContainer.h"
 
 struct {
 	GLint mvp;
@@ -27,6 +28,12 @@ struct {
 	GLint eyePos;
 	GLint lightPosCorrect;
 	GLint offset;
+	GLint reflectionColor;
+	GLint specularColor;
+	GLint diffuseColor;
+	GLint var1;
+	GLint var2;
+	GLint var3;
 } uniforms;
 
 struct ImagePBM {
@@ -55,14 +62,15 @@ void shaderFromFileAndLink (GLenum, GLchar *, GLuint);
 std::string readFile (GLchar *);
 GLuint createShaderFromCode (GLenum, std::string);
 ImagePBM readPBMFile(GLchar *);
-void createTexture(GLchar *, GLenum);
+GLuint createTexture(GLchar *);
 bool loadObjIndexed(const char *, std::vector<GLfloat>&, std::vector<GLfloat>&, std::vector<GLushort>&);
 
 void printFunction();
 
 bool terminated = false;
-bool buttonPressed = false;
+DreamClickable* buttonPressed;
 bool mousePressed = false;
+DreamContainer* guiContainer;
 
 int main(void) {
 
@@ -80,20 +88,57 @@ int main(void) {
 	uniforms.lightPos = glGetUniformLocation(program, "lightPos");
 	uniforms.eyePos = glGetUniformLocation(program, "eyePos");
 	uniforms.lightPosCorrect = glGetUniformLocation(program, "lightPosCorrect");
+	
+	uniforms.reflectionColor = glGetUniformLocation(program, "reflectionColor");
+	uniforms.diffuseColor = glGetUniformLocation(program, "diffuseColor");
+	uniforms.specularColor = glGetUniformLocation(program, "specularColor");
+	uniforms.var1 = glGetUniformLocation(program, "var1");
+	uniforms.var2 = glGetUniformLocation(program, "var2");
+	uniforms.var3 = glGetUniformLocation(program, "var3");
 
 	GLuint simpleProgram = createProgram("simplePass.vert", NULL, NULL, NULL, "simplePass.frag");
 	GLuint rainProgram = createProgram("rain.vert", "rain.geom", NULL, NULL, "rain.frag");
 	GLuint buttonProgram = createProgram("button.vert", NULL, NULL, NULL, "button.frag");
+	
+	GLuint texProgram = createProgram("tex.vert", NULL, NULL, NULL, "tex.frag");
 
 	glPatchParameteri(GL_PATCH_VERTICES, 4);
 	glPointSize(16);
+
+	GLuint frameBufferName;
+	glGenFramebuffers(1, &frameBufferName);
+	glBindFramebuffer(GL_FRAMEBUFFER, frameBufferName);
+
+	GLuint frameBufferColorTextureName;
+	glGenTextures(1, &frameBufferColorTextureName);
+	glBindTexture(GL_TEXTURE_2D, frameBufferColorTextureName);
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB8, 1280, 720);
+
+	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	GLuint frameBufferDepthTextureName;
+	glGenTextures(1, &frameBufferDepthTextureName);
+	glBindTexture(GL_TEXTURE_2D, frameBufferDepthTextureName);
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT32F, 1280, 720);//GL_DEPTH_COMPONENT16
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, frameBufferColorTextureName, 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, frameBufferDepthTextureName, 0);
+
+	static const GLenum drawBuffers[] = {GL_COLOR_ATTACHMENT0};
+	glDrawBuffers(1, drawBuffers);
 
 	GLuint vao;
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
 
-	createTexture("Textures/Water.pbm", GL_TEXTURE0);
-	createTexture("Textures/colorMap.pbm", GL_TEXTURE1);
+	GLuint waterTexture = createTexture("Textures/Water.pbm");
+	GLuint fiberTexture = createTexture("Textures/colorMap.pbm");
 	
 	std::vector<GLfloat> monkey_vertices;
 	std::vector<GLfloat> monkey_normals;
@@ -132,8 +177,8 @@ int main(void) {
 	camera.translation = glm::vec3();
 	
 	glm::vec4 lightPos(0.0, 100.0, -500.0, 1.0);
-	glm::vec3 lightColor(0.5, 0.3, 0.2);
-	GLfloat lightPower(300.0);
+	glm::vec3 lightColor(0.6, 0.6, 0.9);
+	GLfloat lightPower(1.0);
 
 	glm::vec3 eye(0.0, 8.0, 3.0);
 	glm::vec3 center(0.0, 8.0, 0.0);
@@ -142,54 +187,53 @@ int main(void) {
 	glm::mat4 modelMatrixWater(1.0f);
 	glm::mat4 modelMatrixLand(1.0f);
 	modelMatrixLand = glm::scale(modelMatrixLand, glm::vec3(17.0, 17.0, 17.0));
-	modelMatrixLand = glm::translate(modelMatrixLand, glm::vec3(0.0, -0.2, 0.0));
+	modelMatrixLand = glm::translate(modelMatrixLand, glm::vec3(0.0, -0.4, 0.0));
 	glm::mat4 viewMatrix = glm::lookAt(eye, center, up);
-	glm::mat4 perspectiveMatrix = glm::perspective(30.0f, 16.0f/9.0f, 0.1f, 1000.0f);
+	glm::mat4 perspectiveMatrix = glm::perspective(30.0f, 16.0f/9.0f, 1.0f, 500.0f);
 	glm::mat4 mvpWater = perspectiveMatrix * viewMatrix * modelMatrixWater;
 	glm::mat4 mvpLand = perspectiveMatrix * viewMatrix * modelMatrixLand;
 	glm::mat4 mvpLight = perspectiveMatrix * viewMatrix * modelMatrixLight;
+
 	
-	GLfloat dmapDepth = 1.5;
+	
+	glm::vec3 reflectionColor(1.0f, 1.0f, 1.0f);
+	glm::vec3 specularColor(1.0f, 1.0f, 1.0f);
+	glm::vec3 diffuseColor(1.0f, 1.0f, 1.0f);
+
+	GLfloat var1 = 10.0f;
+	GLfloat var2 = 25.0f;
+	GLfloat var3 = 1.0f;
+
+	GLfloat dmapDepth = 6.0f;
 
 	int windowWidth, windowHeight;
 	glfwGetWindowSize(window, &windowWidth, &windowHeight);
-	
-	float buttonOffset[2] = {0.0f/windowWidth, 0.0f/windowHeight};
-	float buttonSize[2] = {100.0f/windowWidth, 100.0f/windowHeight};
-	float buttonColor[4] = {0.0f, 0.0f, 0.0f, 0.5f};
 
-	DreamButton* button = new DreamButton(buttonOffset, buttonSize, buttonColor, printFunction);
-	
-	buttonOffset[0] = 200.0f/windowWidth;
-	DreamButton* button2 = new DreamButton(buttonOffset, buttonSize, buttonColor, printFunction);
+	float containerOffset[2] = {0.0f/windowWidth, 200.0f/windowHeight};
+	float containerSize[2] = {100.0f/windowWidth, 200.0f/windowHeight};
+	float containerColor[4] = {0.0, 0.0, 0.0, 0.5};
+	guiContainer = new DreamContainer(containerOffset, containerSize, containerColor);
+	guiContainer->addComponent(printFunction);
+	guiContainer->addComponent(&reflectionColor[0], 3, 0.0f, 1.0f);
+	guiContainer->addComponent(&specularColor[0], 3, 0.0f, 1.0f);
+	guiContainer->addComponent(&diffuseColor[0], 3, 0.0f, 1.0f);
+	guiContainer->addComponent(&var1, 0.0f, 10.0f);
+	guiContainer->addComponent(&var2, 0.0f, 10.0f);
+	guiContainer->addComponent(&var3, 0.0f, 100.0f);
+	guiContainer->addComponent(&dmapDepth, -10.0f, 10.0f);
 
-	float sliderOffset[2] = {400.0f/windowWidth, 0.0f/windowHeight};
-	float sliderSize[2] = {50.0f/windowWidth, 200.0f/windowHeight};
-	float sliderColor[4] = {0.0f, 0.0f, 0.0f, 0.5f};
-
-	DreamSlider* sliderColor1 = new DreamSlider(&lightColor[0], sliderOffset, sliderSize, sliderColor, 0.0f, 1.0f);
-	
-	sliderOffset[0] = 500.0f/windowWidth;
-
-	DreamSlider* sliderColor2 = new DreamSlider(&lightColor[1], sliderOffset, sliderSize, sliderColor, 0.0f, 1.0f);
-	
-	sliderOffset[0] = 600.0f/windowWidth;
-
-	DreamSlider* sliderColor3 = new DreamSlider(&lightColor[2], sliderOffset, sliderSize, sliderColor, 0.0f, 1.0f);	
-
-	sliderOffset[0] = 700.0f/windowWidth;
-
-	DreamSlider* sliderPower = new DreamSlider(&lightPower, sliderOffset, sliderSize, sliderColor, 0.0f, 50.0f);
-
-	buttonList.push_back(button);
-	buttonList.push_back(button2);
-	buttonList.push_back(sliderColor1);
-	buttonList.push_back(sliderColor2);
-	buttonList.push_back(sliderColor3);
-	buttonList.push_back(sliderPower);
+	glm::vec4 clearColorValue = glm::vec4(1.0f, 1.0f, 1.0f, 1.0);
+	float* clearDepthValue = new float(1.0f);
 
 	while(!glfwWindowShouldClose(window) && !terminated) {
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glfwPollEvents();
+
+		//Draw to FrameBuffer
+		glBindFramebuffer(GL_FRAMEBUFFER, frameBufferName);
+
+		glViewport(0, 0, 1280, 720);
+		glClearBufferfv(GL_COLOR, 0, &clearColorValue[0]);
+		glClearBufferfv(GL_DEPTH, 0, clearDepthValue);
 
 		double time = glfwGetTime();
 		texOffset.x = -time/20;
@@ -213,14 +257,22 @@ int main(void) {
 		glBindVertexArray (rainVao);
 
 		glUniformMatrix4fv(4, 1, GL_FALSE, &mvpLand[0][0]);
-		glUniform4fv(5, 1, &mvpLightPosCorrect[0]);
+		glUniform3fv(5, 1, &mvpLightPosCorrect[0]);
 		glUniform3fv(6, 1, &lightColor[0]);
 		glUniform1f(7, lightPower);
 
 		glDrawElements(GL_TRIANGLES, monkey_indices.size(), GL_UNSIGNED_SHORT, (void *) 0);
 
 		//Water
+		glDepthMask(GL_FALSE);
 		glUseProgram(program);
+		
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, waterTexture);
+		
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, frameBufferDepthTextureName);
+
 		glBindVertexArray(vao);
 
 		glUniform1f(uniforms.dmapDepth, dmapDepth);
@@ -235,8 +287,19 @@ int main(void) {
 		glUniform3fv(uniforms.lightPos, 1, &mvpEyePos[0]);
 		
 		glUniform3fv(uniforms.lightPosCorrect, 1, &mvpLightPosCorrect[0]);
+		
+		glUniform3fv(uniforms.specularColor, 1, &specularColor[0]);
+		glUniform3fv(uniforms.reflectionColor, 1, &reflectionColor[0]);
+		glUniform3fv(uniforms.diffuseColor, 1, &diffuseColor[0]);
+
+		glUniform1f(uniforms.var1, var1);
+		glUniform1f(uniforms.var2, var2);
+		glUniform1f(uniforms.var3, var3);
 
 		glDrawArraysInstanced(GL_PATCHES, 0, 4, 256*256);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		
+		glDepthMask(GL_TRUE);
 
 		//Light
 		glUseProgram(simpleProgram);
@@ -247,8 +310,9 @@ int main(void) {
 
 		//Button
 		glUseProgram(buttonProgram);
-		for(int i=0; i<buttonList.size(); i++) {
-			for(DreamRenderable* renderable : buttonList[i]->getRenderables()) {
+		for(int i = 0; i<buttonList.size(); i++) {
+			for(int j = buttonList[i]->getRenderables().size()-1; j>=0; j--) {
+				DreamRenderable* renderable = buttonList[i]->getRenderables()[j];
 				glUniform2fv(0, 1, &renderable->getSize()[0]);
 				glUniform2fv(1, 1, &renderable->getOffset()[0]);
 				glUniform4fv(2, 1, &renderable->getColor()[0]);
@@ -256,7 +320,32 @@ int main(void) {
 			}
 		}
 
-		glfwPollEvents();
+		for(int i = 0; i < guiContainer->getComponents().size(); i++) {
+			for(int j = guiContainer->getComponents()[i]->getRenderables().size()-1; j >= 0;j--) {
+				DreamRenderable* renderable = guiContainer->getComponents()[i]->getRenderables()[j];
+				glUniform2fv(0, 1, &renderable->getSize()[0]);
+				glUniform2fv(1, 1, &renderable->getOffset()[0]);
+				glUniform4fv(2, 1, &renderable->getColor()[0]);
+				glDrawArrays(GL_QUADS, 0, 4);
+			}
+		}
+
+		//Draw Framebuffer Texture To Screen
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		glViewport(0, 0, 1280, 720);
+		glClearBufferfv(GL_COLOR, 0, &clearColorValue[0]);
+		glClearBufferfv(GL_DEPTH, 0, clearDepthValue);
+		
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, frameBufferColorTextureName);
+
+		glUseProgram(texProgram);
+
+		glDrawArrays(GL_QUADS, 0, 4);
+
+		glBindTexture(GL_TEXTURE_2D, 0);
+
 
 		glfwSwapBuffers(window);
 	}
@@ -299,17 +388,18 @@ ImagePBM readPBMFile(GLchar * ppmFileName) {
 	return imageStruct;
 }
 
-void createTexture(GLchar * textureFileName, GLenum glTextureNum) {
+GLuint createTexture(GLchar * textureFileName) {
 	ImagePBM colorMap = readPBMFile(textureFileName);
+
 	GLuint colorMapID;
-	glActiveTexture(glTextureNum);
 	glGenTextures(1, &colorMapID);
 	glBindTexture(GL_TEXTURE_2D, colorMapID);
-	// Allocate storage for the texture data
+
 	glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, colorMap.width, colorMap.height);
-	// Specify the data for the texture
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorMap.width, colorMap.height, GL_RED, GL_UNSIGNED_BYTE, colorMap.data);
+
 	delete [] colorMap.data;
+	return colorMapID;
 }
 
 GLFWwindow* openGLInit(GLint width, GLint height, GLchar* windowTitle) {
@@ -397,10 +487,23 @@ void mouseMoveCallback(GLFWwindow * window, double mouseX, double mouseY) {
 }
 
 void checkForHover(double mouseX, double mouseY) {
-	for(unsigned int i=0; i<buttonList.size(); i++) {
-		if(buttonList[i]->checkAndSetHovering(mouseX, mouseY)) {
-			if(mousePressed) {
-				buttonList[i]->mouseDown(mouseX, mouseY);
+	if(buttonPressed != NULL && mousePressed) {
+		buttonPressed->mouseDown(mouseX, mouseY);
+	}
+	else {
+		for(unsigned int i=0; i<buttonList.size(); i++) {
+			if(buttonList[i]->checkAndSetHovering(mouseX, mouseY)) {
+				if(mousePressed) {
+					buttonList[i]->mouseDown(mouseX, mouseY);
+				}
+			}
+		}
+
+		for(int i = 0; i < guiContainer->getComponents().size(); i++) {
+			if(((DreamClickable*)(guiContainer->getComponents()[i]))->checkAndSetHovering(mouseX, mouseY)) {
+				if(mousePressed) {
+					((DreamClickable*)(guiContainer->getComponents()[i]))->mouseDown(mouseX, mouseY);
+				}
 			}
 		}
 	}
@@ -416,18 +519,39 @@ void mouseButtonCallback(GLFWwindow * window, int button, int action, int mods) 
 	mouseX /= windowSize[0]/2.0;
 	mouseY /= windowSize[1]/2.0;
 	
-	for(unsigned int i=0; i<buttonList.size(); i++) {
-		if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-			buttonList[i]->pointInAndExecute(mouseX, mouseY);
-			mousePressed = true;
-		} else if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
-			mousePressed = false;
+	
+	if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+		mousePressed = false;
+		buttonPressed = NULL;
+	}
+	else {
+		for(unsigned int i=0; i<buttonList.size(); i++) {
+			if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+				if(buttonList[i]->pointInAndExecute(mouseX, mouseY)) {
+					mousePressed = true;
+					buttonPressed = buttonList[i];
+					break;
+				}
+			}
+		}		
+
+		for(int i = 0; i < guiContainer->getComponents().size(); i++) {
+			if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+				if(((DreamClickable*)(guiContainer->getComponents()[i]))->pointInAndExecute(mouseX, mouseY)) {
+					mousePressed = true;
+					buttonPressed = (DreamClickable*)guiContainer->getComponents()[i];
+					break;
+				}
+			}
 		}
 	}
 }
 
 void printFunction() {
 	printf("I'm a button\n");
+	for(int i = 0; i<guiContainer->getComponents().size(); i++) {
+		((DreamClickable*)(guiContainer->getComponents()[i]))->print();
+	}
 }
 
 GLuint createProgram(GLchar * vert_shader, GLchar * geom_shader, GLchar * tes_control_shader, GLchar * tes_eval_shader, GLchar * frag_shader)

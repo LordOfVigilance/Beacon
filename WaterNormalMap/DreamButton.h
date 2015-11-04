@@ -7,13 +7,13 @@
 
 class DreamButton : public DreamClickable {
 private:
-	typedef void (*method)();
-	method buttonExecution;
+	typedef void (*Method)();
+	Method buttonExecution;
 
 public:
-	DreamButton(method);
-	DreamButton(float[2], float[2], float[4], method);
-	DreamButton(DreamRenderable, method);
+	DreamButton(Method);
+	DreamButton(float[2], float[2], float[4], Method);
+	DreamButton(DreamRenderable, Method);
 	~DreamButton(void);
 
 	void mousePress(double, double);

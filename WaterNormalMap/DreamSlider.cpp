@@ -24,6 +24,21 @@ void DreamSlider::constructorSliderMinMax(float* sliderValue, float min, float m
 	addRenderable(sliderRenderable);
 }
 
+DreamRenderable* DreamSlider::createSliderRenderableFromContainer() {
+	DreamRenderable* containerRenderable = getRenderables().at(0);
+
+	float containerY = containerRenderable->getOffset()[1];
+	float containerSize = containerRenderable->getSize()[1];
+	float offsetY = containerSize*(1 - ((*sliderValue-minValue)/(maxValue-minValue))) + containerY;
+
+	float offset[2] = {containerRenderable->getOffset()[0] - containerRenderable->getSize()[0]*0.2, offsetY};
+	float size[2] = {containerRenderable->getSize()[0]*1.4, containerRenderable->getSize()[1]/20};
+	float* colorPtr = containerRenderable->colorModified();
+	float color[4] = {colorPtr[0], colorPtr[1], colorPtr[2], colorPtr[3]};
+
+	return new DreamRenderable(offset, size, color);
+}
+
 DreamSlider::~DreamSlider(void) {}
 
 void DreamSlider::mousePress(double pointX, double pointY) {
@@ -47,15 +62,6 @@ void DreamSlider::adjustSlider(double pointX, double pointY) {
 	*sliderValue = maxValue - (pointY - minY)/(maxY-minY) * (maxValue - minValue);
 }
 
-DreamRenderable* DreamSlider::createSliderRenderableFromContainer() {
-	DreamRenderable* containerRenderable = getRenderables().at(0);
-
-	float offsetY = (containerRenderable->getSize()[1]-containerRenderable->getOffset()[1])*(1 - (*sliderValue/(maxValue-minValue))) + containerRenderable->getOffset()[1];
-
-	float offset[2] = {containerRenderable->getOffset()[0] - containerRenderable->getSize()[0]*0.2, offsetY};
-	float size[2] = {containerRenderable->getSize()[0]*1.4, containerRenderable->getSize()[1]/20};
-	float* colorPtr = containerRenderable->colorModified();
-	float color[4] = {colorPtr[0], colorPtr[1], colorPtr[2], colorPtr[3]};
-
-	return new DreamRenderable(offset, size, color);
+void DreamSlider::print() {
+	printf("Slider Value: %f\n", *sliderValue);
 }

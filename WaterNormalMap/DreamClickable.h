@@ -2,26 +2,19 @@
 
 #include <stdio.h>
 #include <vector>
+#include "DreamComponent.h"
 
-#include "DreamRenderable.h"
-
-class DreamClickable
+class DreamClickable : public DreamComponent
 {
-private:
-	std::vector<DreamRenderable*> renderables;
-
 public:
 	DreamClickable(void);
 	DreamClickable(float[2], float[2], float[4]);
 	DreamClickable(DreamRenderable*);
 	~DreamClickable(void);
 
-	void addRenderable(DreamRenderable*);
-
 	bool pointInAndExecute(double, double);
 	bool checkAndSetHovering(double, double);
 	virtual void mousePress(double, double) = 0;
 	virtual void mouseDown(double, double);
-
-	std::vector<DreamRenderable*> getRenderables();
+	virtual void print();
 };

@@ -1,0 +1,35 @@
+#version 430 core
+
+layout (quads, fractional_odd_spacing) in;
+
+layout (binding = 0) uniform sampler2D texDisplacement;
+
+uniform vec2 texOffset;
+uniform mat4 mvp;
+uniform float dmap_depth;
+uniform float sinValue;
+
+in TCS_OUT {
+	vec2 textureCoord;
+} tesIn[];
+
+out TES_OUT {
+	vec2 textureCoord;
+} tesOut;
+
+void main(void) {
+	vec2 textureCoord1 = mix(tesIn[0].textureCoord, tesIn[1].textureCoord, gl_TessCoord.x);
+	vec2 textureCoord2 = mix(tesIn[2].textureCoord, tesIn[3].textureCoord, gl_TessCoord.x);
+	vec2 textureCoord = mix(textureCoord2, textureCoord1, gl_TessCoord.y);
+
+	vec4 point1 = mix(gl_in[0].gl_Position, gl_in[1].gl_Position, gl_TessCoord.x);
+	vec4 point2 = mix(gl_in[2].gl_Position, gl_in[3].gl_Position, gl_TessCoord.x);
+
+	vec4 point = mix(point2, point1, gl_TessCoord.y);
+
+	vec2 tc = textureCoord + texOffset;
+	point.y += sinValue*((texture(texDisplacement, tc).r-0.5)*dmap_depth);
+
+	gl_Position = mvp*point;
+	tesOut.textureCoord = textureCoord;
+}

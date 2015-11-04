@@ -25,6 +25,7 @@ public:
 	void mouseDown(double, double);
 	void adjustSlider(double, double);
 
+	void print();
 
 	DreamRenderable* createSliderRenderableFromContainer();
 };
