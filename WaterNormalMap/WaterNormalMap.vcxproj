@@ -86,6 +86,7 @@
     <ClCompile Include="DreamRenderable.cpp" />
     <ClCompile Include="DreamSlider.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Model.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="button.frag" />
@@ -93,6 +94,8 @@
     <None Include="rain.frag" />
     <None Include="rain.geom" />
     <None Include="rain.vert" />
+    <None Include="reflection.frag" />
+    <None Include="reflection.vert" />
     <None Include="simplePass.frag" />
     <None Include="tex.frag" />
     <None Include="tex.vert" />
@@ -112,6 +115,7 @@
     <ClInclude Include="DreamContainer.h" />
     <ClInclude Include="DreamRenderable.h" />
     <ClInclude Include="DreamSlider.h" />
+    <ClInclude Include="Model.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

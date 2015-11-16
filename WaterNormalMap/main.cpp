@@ -16,6 +16,8 @@
 #include "DreamClickable.h"
 #include "DreamContainer.h"
 
+#include "Model.h"
+
 struct {
 	GLint mvp;
 	GLint dmapDepth;
@@ -34,11 +36,15 @@ struct {
 	GLint var1;
 	GLint var2;
 	GLint var3;
+	GLint var4;
+	GLint var5;
+	GLint var6;
 } uniforms;
 
 struct ImagePBM {
 	GLint width;
 	GLint height;
+	GLint elements;
 	GLubyte* data;
 };
 
@@ -61,9 +67,9 @@ GLuint createProgram (GLchar *, GLchar *, GLchar *, GLchar *, GLchar *);
 void shaderFromFileAndLink (GLenum, GLchar *, GLuint);
 std::string readFile (GLchar *);
 GLuint createShaderFromCode (GLenum, std::string);
-ImagePBM readPBMFile(GLchar *);
-GLuint createTexture(GLchar *);
-bool loadObjIndexed(const char *, std::vector<GLfloat>&, std::vector<GLfloat>&, std::vector<GLushort>&);
+ImagePBM readNetpbmFile(GLchar *);
+GLuint createRTexture(GLchar *);
+GLuint createRGBTexture(GLchar *);
 
 void printFunction();
 
@@ -71,6 +77,7 @@ bool terminated = false;
 DreamClickable* buttonPressed;
 bool mousePressed = false;
 DreamContainer* guiContainer;
+bool drawButtons = true;
 
 int main(void) {
 
@@ -95,116 +102,161 @@ int main(void) {
 	uniforms.var1 = glGetUniformLocation(program, "var1");
 	uniforms.var2 = glGetUniformLocation(program, "var2");
 	uniforms.var3 = glGetUniformLocation(program, "var3");
+	uniforms.var4 = glGetUniformLocation(program, "var4");
+	uniforms.var5 = glGetUniformLocation(program, "var5");
+	uniforms.var6 = glGetUniformLocation(program, "var6");
 
 	GLuint simpleProgram = createProgram("simplePass.vert", NULL, NULL, NULL, "simplePass.frag");
 	GLuint rainProgram = createProgram("rain.vert", "rain.geom", NULL, NULL, "rain.frag");
 	GLuint buttonProgram = createProgram("button.vert", NULL, NULL, NULL, "button.frag");
 	
 	GLuint texProgram = createProgram("tex.vert", NULL, NULL, NULL, "tex.frag");
+	GLuint reflectionProgram = createProgram("reflection.vert", NULL, NULL, NULL, "reflection.frag");
 
 	glPatchParameteri(GL_PATCH_VERTICES, 4);
 	glPointSize(16);
 
+	//FrameBuffer One
+	GLuint frameBufferDownSampled;
+	glGenFramebuffers(1, &frameBufferDownSampled);
+	glBindFramebuffer(GL_FRAMEBUFFER, frameBufferDownSampled);
+
+	GLuint FBcolorDownSampled;
+	glGenTextures(1, &FBcolorDownSampled);
+	glBindTexture(GL_TEXTURE_2D, FBcolorDownSampled);
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB8, 1280, 720);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, FBcolorDownSampled, 0);
+
+	static const GLenum drawBuffersDS[] = {GL_COLOR_ATTACHMENT0};
+	glDrawBuffers(1, drawBuffersDS);
+	
+	if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		return false;
+
+	//Multisampled FrameBuffer
 	GLuint frameBufferName;
 	glGenFramebuffers(1, &frameBufferName);
 	glBindFramebuffer(GL_FRAMEBUFFER, frameBufferName);
+	
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameterfv(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_BORDER_COLOR, &glm::vec3(1.0, 0.0, 1.0)[0]);
 
 	GLuint frameBufferColorTextureName;
 	glGenTextures(1, &frameBufferColorTextureName);
-	glBindTexture(GL_TEXTURE_2D, frameBufferColorTextureName);
-	glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB8, 1280, 720);
-
-	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, frameBufferColorTextureName);
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGB8, 1280, 720, GL_TRUE);
+	
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameterfv(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_BORDER_COLOR, &glm::vec3(1.0, 0.0, 1.0)[0]);
 
 	GLuint frameBufferDepthTextureName;
 	glGenTextures(1, &frameBufferDepthTextureName);
-	glBindTexture(GL_TEXTURE_2D, frameBufferDepthTextureName);
-	glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT32F, 1280, 720);//GL_DEPTH_COMPONENT16
+	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, frameBufferDepthTextureName);
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_DEPTH_COMPONENT32F, 1280, 720, GL_TRUE);//GL_DEPTH_COMPONENT16
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
 
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, frameBufferColorTextureName, 0);
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, frameBufferDepthTextureName, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, frameBufferColorTextureName, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D_MULTISAMPLE, frameBufferDepthTextureName, 0);
 
 	static const GLenum drawBuffers[] = {GL_COLOR_ATTACHMENT0};
 	glDrawBuffers(1, drawBuffers);
+	
+	if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		return false;
+ 
+	//FrameBuffer Two
+	GLuint FBreflection;
+	glGenFramebuffers(1, &FBreflection);
+	glBindFramebuffer(GL_FRAMEBUFFER, FBreflection);
+
+	GLuint FBreflectionDepth;
+	glGenTextures(1, &FBreflectionDepth);
+	glBindTexture(GL_TEXTURE_2D, FBreflectionDepth);
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT32, 1280, 720);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, FBreflectionDepth, 0);
+
+	glDrawBuffer(GL_NONE);
+	
+	if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		return false;	
 
 	GLuint vao;
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
 
-	GLuint waterTexture = createTexture("Textures/Water.pbm");
-	GLuint fiberTexture = createTexture("Textures/colorMap.pbm");
-	
-	std::vector<GLfloat> monkey_vertices;
-	std::vector<GLfloat> monkey_normals;
-	std::vector<GLushort> monkey_indices;
+	GLuint waterTexture = createRTexture("Textures/Water.pbm");
+	GLuint waterNormalMap = createRGBTexture("Textures/Water_NRM.pbm");
+	GLuint fiberTexture = createRTexture("Textures/colorMap.pbm");
 
-	loadObjIndexed("Models/Land.obj", monkey_vertices, monkey_normals, monkey_indices);	
-	
-	//Create a vertex attribute object
-	GLuint rainVao = 0;
-	glGenVertexArrays(1, &rainVao);
-	glBindVertexArray(rainVao);
-
-	//Create a buffer from openGL
-	GLuint rainVbo = 1;
-	glGenBuffers(1, &rainVbo);
-	glBindBuffer(GL_ARRAY_BUFFER, rainVbo);
-
-	//Allocate space from openGL for the rain attributes
-	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * monkey_vertices.size(), NULL, GL_STATIC_DRAW);
-
-	GLuint offset = 0;
-	//Fill each attribue with data
-	glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(GLfloat) * monkey_vertices.size(), monkey_vertices.data());
-
-	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-
-	glEnableVertexAttribArray(0);
-
-	GLuint vertex_indices_buffer;
-	glGenBuffers(1, &vertex_indices_buffer);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertex_indices_buffer);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort) * monkey_indices.size(), monkey_indices.data(), GL_STATIC_DRAW);
-
+	Model land("Models/Land.obj");
+	Model lighthouse("Models/Lighthouse.obj");	
+	Model monkey("Models/Monkey.obj");
+	Model ship("Models/Ship.obj");
 
 	camera.rotation = glm::vec2();
 	camera.translation = glm::vec3();
 	
-	glm::vec4 lightPos(0.0, 100.0, -500.0, 1.0);
+	glm::vec4 lightPos(20.0, -120.0, 580.0, 1.0);
 	glm::vec3 lightColor(0.6, 0.6, 0.9);
 	GLfloat lightPower(1.0);
 
-	glm::vec3 eye(0.0, 8.0, 3.0);
-	glm::vec3 center(0.0, 8.0, 0.0);
+	glm::vec3 eye(0.0, 2.5, 3.0);
+	glm::vec3 center(0.0, 2.5, 0.0);
 	glm::vec3 up(0.0, -1.0, 0.0);
+	glm::mat4 viewMatrix = glm::lookAt(eye, center, up);
+
+	glm::vec3 eyeReflection(0.0, -2.5, 3.0);
+	glm::vec3 centerReflection(0.0, -2.5, 0.0);
+	glm::vec3 upReflection(0.0, 1.0, 0.0);
+	glm::mat4 reflectionViewMatrix = glm::scale(glm::lookAt(eyeReflection, centerReflection, upReflection), glm::vec3(-1.0, 1.0, 1.0));
+	
+	glm::mat4 perspectiveMatrix = glm::perspective(30.0f, 16.0f/9.0f, 1.0f, 500.0f);
+
 	glm::mat4 modelMatrixLight(1.0f);
 	glm::mat4 modelMatrixWater(1.0f);
-	glm::mat4 modelMatrixLand(1.0f);
-	modelMatrixLand = glm::scale(modelMatrixLand, glm::vec3(17.0, 17.0, 17.0));
-	modelMatrixLand = glm::translate(modelMatrixLand, glm::vec3(0.0, -0.4, 0.0));
-	glm::mat4 viewMatrix = glm::lookAt(eye, center, up);
-	glm::mat4 perspectiveMatrix = glm::perspective(30.0f, 16.0f/9.0f, 1.0f, 500.0f);
+
+	land.scale(glm::vec3(17.0, 17.0, 17.0));
+	land.translate(glm::vec3(0.0, -0.4, 0.0));
+
+	lighthouse.scale(glm::vec3(1.0, 1.0, 1.0));
+	lighthouse.translate(glm::vec3(0.0, 0.0, 0.0));
+
+	ship.translate(glm::vec3(70.0, 0.0, 25.0));
+	ship.rotate(90.0f, glm::vec3(0.0, 1.0, 0.0));
+
 	glm::mat4 mvpWater = perspectiveMatrix * viewMatrix * modelMatrixWater;
-	glm::mat4 mvpLand = perspectiveMatrix * viewMatrix * modelMatrixLand;
-	glm::mat4 mvpLight = perspectiveMatrix * viewMatrix * modelMatrixLight;
-
+	glm::mat4 mvpLight = perspectiveMatrix * viewMatrix * modelMatrixLight;	
 	
-	
-	glm::vec3 reflectionColor(1.0f, 1.0f, 1.0f);
-	glm::vec3 specularColor(1.0f, 1.0f, 1.0f);
-	glm::vec3 diffuseColor(1.0f, 1.0f, 1.0f);
+	glm::vec3 reflectionColor(0.22f, 0.3f, 0.36f);
+	glm::vec3 specularColor(0.68f, 0.33f, 0.11f);
+	glm::vec3 diffuseColor(0.25f, 0.32f, 0.43f);
 
-	GLfloat var1 = 10.0f;
-	GLfloat var2 = 25.0f;
-	GLfloat var3 = 1.0f;
+	GLfloat var1 = 1.4f;
+	GLfloat var2 = 2.4f;
+	GLfloat var3 = 675.0f;
+	GLfloat var4 = 340.0f;
+	GLfloat var5 = 580.0f;
+	GLfloat var6 = 260.0f;
+	GLfloat textureSelect = 0.0;
 
-	GLfloat dmapDepth = 6.0f;
+	GLfloat dmapDepth = -0.4f;
 
 	int windowWidth, windowHeight;
 	glfwGetWindowSize(window, &windowWidth, &windowHeight);
@@ -218,8 +270,15 @@ int main(void) {
 	guiContainer->addComponent(&specularColor[0], 3, 0.0f, 1.0f);
 	guiContainer->addComponent(&diffuseColor[0], 3, 0.0f, 1.0f);
 	guiContainer->addComponent(&var1, 0.0f, 10.0f);
-	guiContainer->addComponent(&var2, 0.0f, 10.0f);
-	guiContainer->addComponent(&var3, 0.0f, 100.0f);
+	guiContainer->addComponent(&var2, 0.0f, 120.0f);
+	guiContainer->addComponent(&var3, 0.0f, 675.0f);
+	guiContainer->addComponent(&var4, 0.1f, 1000.0f);
+	guiContainer->addComponent(&var5, 0.1f, 1000.0f);
+	guiContainer->addComponent(&var6, 0.1f, 1000.0f);
+	//guiContainer->addComponent(&modelMatrixLight[3][0], -1000.0f, 1000.0f);
+	//guiContainer->addComponent(&modelMatrixLight[3][1], -1000.0f, 1000.0f);
+	//guiContainer->addComponent(&modelMatrixLight[3][2], -1000.0f, 1000.0f);
+	guiContainer->addComponent(&textureSelect, 0.0f, 3.0f);
 	guiContainer->addComponent(&dmapDepth, -10.0f, 10.0f);
 
 	glm::vec4 clearColorValue = glm::vec4(1.0f, 1.0f, 1.0f, 1.0);
@@ -228,6 +287,55 @@ int main(void) {
 	while(!glfwWindowShouldClose(window) && !terminated) {
 		glfwPollEvents();
 
+		float time = (float) glfwGetTime();
+		texOffset.x = -time/20.0f;
+		texOffset.y = time/40.0f;
+
+		float sinValue = (sin(time)/4.0f + 1.25f);
+
+		viewMatrix = glm::rotate(viewMatrix, camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
+		viewMatrix = glm::translate(viewMatrix, camera.translation);
+		reflectionViewMatrix = glm::rotate(reflectionViewMatrix, camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
+
+		glm::vec3 cameraReflection (camera.translation.x, -camera.translation.y, camera.translation.z);
+		reflectionViewMatrix = glm::translate(reflectionViewMatrix, cameraReflection);
+		mvpLight = perspectiveMatrix*viewMatrix*modelMatrixLight;
+		mvpWater = perspectiveMatrix*viewMatrix*modelMatrixWater;
+
+		glm::vec4 mvpLightPos = lightPos*mvpLight;
+		glm::vec4 mvpEyePos = glm::vec4(eye, 1.0)*mvpLight;
+		glm::vec4 mvpLightPosCorrect = mvpLight*lightPos;
+		
+		//Draw the depths to the Reflection Buffer
+		glBindFramebuffer(GL_FRAMEBUFFER, FBreflection);
+		glViewport(0, 0, 1280, 720);
+		glClearBufferfv(GL_DEPTH, 0, clearDepthValue);
+
+		glEnable(GL_CLIP_DISTANCE0);
+		glUseProgram(reflectionProgram);
+
+		//Land
+		land.setVP(perspectiveMatrix*reflectionViewMatrix);
+		glUniformMatrix4fv(1, 1, GL_FALSE, &land.getMatrix()[0][0]);
+		land.render();
+
+		//Lighthouse
+		lighthouse.setVP(perspectiveMatrix*reflectionViewMatrix);
+		glUniformMatrix4fv(1, 1, GL_FALSE, &lighthouse.getMatrix()[0][0]);
+		lighthouse.render();
+		
+		//Monkey
+		monkey.setVP(perspectiveMatrix*reflectionViewMatrix);
+		glUniformMatrix4fv(1, 1, GL_FALSE, &monkey.getMatrix()[0][0]);
+		monkey.render();
+		
+		//Ship
+		ship.setVP(perspectiveMatrix*reflectionViewMatrix);
+		glUniformMatrix4fv(1, 1, GL_FALSE, &ship.getMatrix()[0][0]);
+		ship.render();
+
+		glDisable(GL_CLIP_DISTANCE0);
+
 		//Draw to FrameBuffer
 		glBindFramebuffer(GL_FRAMEBUFFER, frameBufferName);
 
@@ -235,43 +343,52 @@ int main(void) {
 		glClearBufferfv(GL_COLOR, 0, &clearColorValue[0]);
 		glClearBufferfv(GL_DEPTH, 0, clearDepthValue);
 
-		double time = glfwGetTime();
-		texOffset.x = -time/20;
-		texOffset.y = time/40;
-
-		float sinValue = (sin(glfwGetTime())/4.0 + 1.25);
-
-		viewMatrix = glm::rotate(viewMatrix, camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
-		viewMatrix = glm::translate(viewMatrix, camera.translation);
-		mvpLight = perspectiveMatrix*viewMatrix*modelMatrixLight;
-		mvpLand = perspectiveMatrix*viewMatrix*modelMatrixLand;
-		mvpWater = perspectiveMatrix*viewMatrix*modelMatrixWater;
-
-		glm::vec4 mvpLightPos = lightPos*mvpLight;
-		glm::vec4 mvpEyePos = glm::vec4(eye, 1.0)*mvpLight;
-		glm::vec4 mvpLightPosCorrect = mvpLight*lightPos;
-
-		//Land
+		//Set rainProgram
 		glUseProgram (rainProgram);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertex_indices_buffer);
-		glBindVertexArray (rainVao);
-
-		glUniformMatrix4fv(4, 1, GL_FALSE, &mvpLand[0][0]);
 		glUniform3fv(5, 1, &mvpLightPosCorrect[0]);
 		glUniform3fv(6, 1, &lightColor[0]);
 		glUniform1f(7, lightPower);
 
-		glDrawElements(GL_TRIANGLES, monkey_indices.size(), GL_UNSIGNED_SHORT, (void *) 0);
+		//Land
+		land.setVP(perspectiveMatrix*viewMatrix);
+		land.render();
+
+		//Lighthouse
+		lighthouse.setVP(perspectiveMatrix*viewMatrix);
+		lighthouse.render();
+		
+		//Monkey
+		monkey.setVP(perspectiveMatrix*viewMatrix);
+		monkey.render();
+		
+		//Ship
+		ship.setVP(perspectiveMatrix*viewMatrix);
+		ship.render();
 
 		//Water
 		glDepthMask(GL_FALSE);
 		glUseProgram(program);
+
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, frameBufferName);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBufferDownSampled);
+		glBlitFramebuffer(0, 0, 1280, 720, 0, 0, 1280, 720, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+		
+		glBindFramebuffer(GL_FRAMEBUFFER, frameBufferName);
 		
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, waterTexture);
 		
 		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, FBcolorDownSampled);
+		
+		glActiveTexture(GL_TEXTURE2);
 		glBindTexture(GL_TEXTURE_2D, frameBufferDepthTextureName);
+		
+		glActiveTexture(GL_TEXTURE3);
+		glBindTexture(GL_TEXTURE_2D, FBreflectionDepth);
+		
+		glActiveTexture(GL_TEXTURE4);
+		glBindTexture(GL_TEXTURE_2D, waterNormalMap);
 
 		glBindVertexArray(vao);
 
@@ -295,6 +412,9 @@ int main(void) {
 		glUniform1f(uniforms.var1, var1);
 		glUniform1f(uniforms.var2, var2);
 		glUniform1f(uniforms.var3, var3);
+		glUniform1f(uniforms.var4, var4);
+		glUniform1f(uniforms.var5, var5);
+		glUniform1f(uniforms.var6, var6);
 
 		glDrawArraysInstanced(GL_PATCHES, 0, 4, 256*256);
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -308,44 +428,30 @@ int main(void) {
 		glUniform4fv(1, 1, &mvpLightPosCorrect[0]);
 		glDrawArrays(GL_POINTS, 0, 1);
 
-		//Button
-		glUseProgram(buttonProgram);
-		for(int i = 0; i<buttonList.size(); i++) {
-			for(int j = buttonList[i]->getRenderables().size()-1; j>=0; j--) {
-				DreamRenderable* renderable = buttonList[i]->getRenderables()[j];
-				glUniform2fv(0, 1, &renderable->getSize()[0]);
-				glUniform2fv(1, 1, &renderable->getOffset()[0]);
-				glUniform4fv(2, 1, &renderable->getColor()[0]);
-				glDrawArrays(GL_QUADS, 0, 4);
-			}
-		}
-
-		for(int i = 0; i < guiContainer->getComponents().size(); i++) {
-			for(int j = guiContainer->getComponents()[i]->getRenderables().size()-1; j >= 0;j--) {
-				DreamRenderable* renderable = guiContainer->getComponents()[i]->getRenderables()[j];
-				glUniform2fv(0, 1, &renderable->getSize()[0]);
-				glUniform2fv(1, 1, &renderable->getOffset()[0]);
-				glUniform4fv(2, 1, &renderable->getColor()[0]);
-				glDrawArrays(GL_QUADS, 0, 4);
-			}
-		}
-
 		//Draw Framebuffer Texture To Screen
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		glViewport(0, 0, 1280, 720);
 		glClearBufferfv(GL_COLOR, 0, &clearColorValue[0]);
 		glClearBufferfv(GL_DEPTH, 0, clearDepthValue);
-		
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, frameBufferColorTextureName);
+				
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, frameBufferName);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+		glBlitFramebuffer(0, 0, 1280, 720, 0, 0, 1280, 720, GL_COLOR_BUFFER_BIT, GL_NEAREST); 
 
-		glUseProgram(texProgram);
-
-		glDrawArrays(GL_QUADS, 0, 4);
-
-		glBindTexture(GL_TEXTURE_2D, 0);
-
+		//Button
+		if(drawButtons) {
+			glUseProgram(buttonProgram);
+			for(unsigned int i = 0; i < guiContainer->getComponents().size(); i++) {
+				for(int j = guiContainer->getComponents()[i]->getRenderables().size()-1; j >= 0;j--) {
+					DreamRenderable* renderable = guiContainer->getComponents()[i]->getRenderables()[j];
+					glUniform2fv(0, 1, &renderable->getSize()[0]);
+					glUniform2fv(1, 1, &renderable->getOffset()[0]);
+					glUniform4fv(2, 1, &renderable->getColor()[0]);
+					glDrawArrays(GL_QUADS, 0, 4);
+				}
+			}
+		}
 
 		glfwSwapBuffers(window);
 	}
@@ -354,7 +460,7 @@ int main(void) {
 	return 0;
 }
 
-ImagePBM readPBMFile(GLchar * ppmFileName) {
+ImagePBM readNetpbmFile(GLchar * ppmFileName) {
 	ImagePBM imageStruct;
 
 	std::ifstream image(ppmFileName);
@@ -366,8 +472,8 @@ ImagePBM readPBMFile(GLchar * ppmFileName) {
 		return imageStruct;
 	}
 
-	std::string ppmFileType;
-	getline(image, ppmFileType);
+	std::string netpbmFileType;
+	getline(image, netpbmFileType);
 
 	std::string line = "";
 	getline(image, line);
@@ -377,19 +483,24 @@ ImagePBM readPBMFile(GLchar * ppmFileName) {
 	getline(image, line);
 	imageStruct.height = atoi(line.c_str());
 
-	imageStruct.data = new GLubyte[imageStruct.width*imageStruct.height];
+	if(netpbmFileType.compare("P5") == 0)
+		imageStruct.elements = 1;
+	else if(netpbmFileType.compare("P6") == 0)
+		imageStruct.elements = 3;
+
+	imageStruct.data = new GLubyte[imageStruct.width*imageStruct.height*imageStruct.elements];
 
 	line = "";
 	getline(image, line);
 
-	for(int i=0; i<imageStruct.width*imageStruct.height; i++)
+	for(int i=0; i<imageStruct.width*imageStruct.height*imageStruct.elements; i++)
 		imageStruct.data[i] = (GLubyte)image.get();
 
 	return imageStruct;
 }
 
-GLuint createTexture(GLchar * textureFileName) {
-	ImagePBM colorMap = readPBMFile(textureFileName);
+GLuint createRTexture(GLchar * textureFileName) {
+	ImagePBM colorMap = readNetpbmFile(textureFileName);
 
 	GLuint colorMapID;
 	glGenTextures(1, &colorMapID);
@@ -402,12 +513,27 @@ GLuint createTexture(GLchar * textureFileName) {
 	return colorMapID;
 }
 
+GLuint createRGBTexture(GLchar * textureFileName) {
+	ImagePBM colorMap = readNetpbmFile(textureFileName);
+
+	GLuint colorMapID;
+	glGenTextures(1, &colorMapID);
+	glBindTexture(GL_TEXTURE_2D, colorMapID);
+
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB8, colorMap.width, colorMap.height);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorMap.width, colorMap.height, GL_RGB, GL_UNSIGNED_BYTE, colorMap.data);
+
+	delete [] colorMap.data;
+	return colorMapID;
+}
+
 GLFWwindow* openGLInit(GLint width, GLint height, GLchar* windowTitle) {
 	if(!glfwInit()) {
 		fprintf(stderr, "GLFW could not be initialised");
 		exit(1);
 	}
 
+	glfwWindowHint(GLFW_SAMPLES, 4);
 	GLFWwindow* window = glfwCreateWindow(1280, 720, "Normal Mapped Water", NULL, NULL);
 
 	if(!window) {
@@ -429,6 +555,8 @@ GLFWwindow* openGLInit(GLint width, GLint height, GLchar* windowTitle) {
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	glEnable(GL_MULTISAMPLE);
 
 	glClearColor(1.0, 1.0, 1.0, 1.0);
 
@@ -471,6 +599,9 @@ void keyCallback (GLFWwindow * window, int key, int scancode, int action, int mo
 
 		else if (key == GLFW_KEY_C)
 			texOffset.x -= 0.1f;
+
+		else if (key == GLFW_KEY_B)
+			drawButtons = !drawButtons;
 		
 		if (key ==  GLFW_KEY_ESCAPE)
 		{
@@ -499,7 +630,7 @@ void checkForHover(double mouseX, double mouseY) {
 			}
 		}
 
-		for(int i = 0; i < guiContainer->getComponents().size(); i++) {
+		for(unsigned int i = 0; i < guiContainer->getComponents().size(); i++) {
 			if(((DreamClickable*)(guiContainer->getComponents()[i]))->checkAndSetHovering(mouseX, mouseY)) {
 				if(mousePressed) {
 					((DreamClickable*)(guiContainer->getComponents()[i]))->mouseDown(mouseX, mouseY);
@@ -535,7 +666,7 @@ void mouseButtonCallback(GLFWwindow * window, int button, int action, int mods) 
 			}
 		}		
 
-		for(int i = 0; i < guiContainer->getComponents().size(); i++) {
+		for(unsigned int i = 0; i < guiContainer->getComponents().size(); i++) {
 			if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
 				if(((DreamClickable*)(guiContainer->getComponents()[i]))->pointInAndExecute(mouseX, mouseY)) {
 					mousePressed = true;
@@ -549,7 +680,7 @@ void mouseButtonCallback(GLFWwindow * window, int button, int action, int mods) 
 
 void printFunction() {
 	printf("I'm a button\n");
-	for(int i = 0; i<guiContainer->getComponents().size(); i++) {
+	for(unsigned int i = 0; i<guiContainer->getComponents().size(); i++) {
 		((DreamClickable*)(guiContainer->getComponents()[i]))->print();
 	}
 }
@@ -640,67 +771,4 @@ GLuint createShaderFromCode (GLenum shaderType, std::string code) {
 	}
 
 	return shaderInt;
-}
-
-bool loadObjIndexed(const char * obj_file_name, std::vector<GLfloat>& vertex_position, std::vector<GLfloat>& vertex_normal, std::vector<GLushort>& vertex_indices) {
-	
-	FILE * obj_file = fopen (obj_file_name, "r");
-	
-	//File not opened
-	if ( obj_file == NULL ) {
-		fprintf(stderr, "ERROR: %s could not be opened", obj_file_name);
-
-		return false;
-	}
-	//File opened
-	else {
-		while ( 1 ) {
-
-			char lineHeader[128];
-			int res = fscanf ( obj_file, "%s", lineHeader );
-			if ( res == EOF )
-				break;
-
-			if ( strcmp (lineHeader, "o") == 0 ) {			//new object
-				printf("object\n");
-				continue;
-			}
-
-			else if ( strcmp (lineHeader, "v") == 0 ) {	//new vertex
-				GLfloat x, y, z;
-				fscanf(obj_file, "%f %f %f\n", &x, &y, &z);
-				vertex_position.push_back(x);
-				vertex_position.push_back(y);
-				vertex_position.push_back(z);
-				vertex_position.push_back(1.0f);
-			}
-
-			else if ( strcmp (lineHeader, "vn") == 0 ) { //new vertex normal
-				GLfloat x, y, z;
-				fscanf(obj_file, "%f %f %f\n", &x, &y, &z);
-				vertex_normal.push_back(x);
-				vertex_normal.push_back(y);
-				vertex_normal.push_back(z);
-				vertex_normal.push_back(1.0f);
-			}
-			
-			else if ( strcmp (lineHeader, "s") == 0 ) {
-				char comment_buffer[128];
-				fgets(comment_buffer, 128, obj_file);
-			}
-
-			else if ( strcmp (lineHeader, "f") == 0 ) {
-				GLuint fv1, fn1, fv2, fn2, fv3, fn3;
-				fscanf (obj_file, "%u//%u %u//%u %u//%u\n", &fv1, &fn1, &fv2, &fn2, &fv3, &fn3);
-				vertex_indices.push_back((short)fv1 - 1);
-				vertex_indices.push_back((short)fv2 - 1);
-				vertex_indices.push_back((short)fv3 - 1);
-			} else {
-				char comment_buffer[128];
-				fgets(comment_buffer, 128, obj_file);
-			}
-		}
-	}
-
-	return true;
 }

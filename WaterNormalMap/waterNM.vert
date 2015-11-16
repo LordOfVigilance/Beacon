@@ -16,6 +16,6 @@ void main(void) {
 	int y = gl_InstanceID >> 8;
 	vec2 offset = vec2(x, y) + texOffset;
 
-	vsOut.textureCoord = (vertices[gl_VertexID].xz + offset + vec2(0.5)) / 64.0;
+	vsOut.textureCoord = (vertices[gl_VertexID].xz + offset + vec2(0.5)) / 32.0;
 	gl_Position = vertices[gl_VertexID] + vec4(float(x - 128), 0.0, float(y - 128), 0.0);
 }

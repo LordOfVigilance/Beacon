@@ -36,6 +36,9 @@
     <ClCompile Include="DreamComponent.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Model.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="waterNM.vert">
@@ -77,6 +80,12 @@
     <None Include="button.vert">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="reflection.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="reflection.frag">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="simplePass.vert">
@@ -100,6 +109,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DreamComponent.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Model.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
