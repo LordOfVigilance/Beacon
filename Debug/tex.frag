@@ -1,16 +1,16 @@
 #version 430 core
 
-// Interpolated values from the vertex shaders
-in vec2 UV;
- 
-// Ouput data
-out vec4 color;
- 
-// Values that stay constant for the whole mesh.
 uniform sampler2D myTextureSampler;
- 
+
+in vec2 tc;
+
+out vec4 color;
+
 void main(){
- 
-    // Output color = color of the texture at the specified UV
-    color = vec4(texture( myTextureSampler, UV ).r);
+
+	//for depth
+	//float colorR = pow(texelFetch( myTextureSampler, ivec2(gl_FragCoord.xy), 0).r, 20);
+    //color = vec4(colorR, colorR, colorR, 1.0);
+
+	color = texture(myTextureSampler, tc, 0);
 }

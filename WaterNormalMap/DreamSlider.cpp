@@ -31,8 +31,8 @@ DreamRenderable* DreamSlider::createSliderRenderableFromContainer() {
 	float containerSize = containerRenderable->getSize()[1];
 	float offsetY = containerSize*(1 - ((*sliderValue-minValue)/(maxValue-minValue))) + containerY;
 
-	float offset[2] = {containerRenderable->getOffset()[0] - containerRenderable->getSize()[0]*0.2, offsetY};
-	float size[2] = {containerRenderable->getSize()[0]*1.4, containerRenderable->getSize()[1]/20};
+	float offset[2] = {containerRenderable->getOffset()[0] - containerRenderable->getSize()[0]*0.2f, offsetY};
+	float size[2] = {containerRenderable->getSize()[0]*1.4f, containerRenderable->getSize()[1]/20.0f};
 	float* colorPtr = containerRenderable->colorModified();
 	float color[4] = {colorPtr[0], colorPtr[1], colorPtr[2], colorPtr[3]};
 

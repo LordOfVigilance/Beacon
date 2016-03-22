@@ -98,7 +98,7 @@ void main(void) {
 	//Gives Sharp Lines around edges
 	float cameraTransparency = 4;
 	float cameraEdgeFactor = 0.015;
-	float edgeFactor = 2.0;
+	float edgeFactor = var1;
 	float zDifference = 1 - pow(zFrag/zTexel, cameraTransparency + fragDist*fragDist*cameraEdgeFactor);
 	zDifference = clamp(round(sqrt(zDifference)*edgeFactor), 0, 1)/2 + 1.0;
 

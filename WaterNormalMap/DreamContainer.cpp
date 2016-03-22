@@ -49,6 +49,19 @@ void DreamContainer::addComponent(float* sliderArray, int arraySize, float minVa
 	}
 }
 
+void DreamContainer::addComponent(float* sliderArray, int arraySize, float minValue, float maxValue, float color[4]) {
+	DreamRenderable* container = getRenderables()[0];
+
+	float offset[2] = {0.05f*components.size(), container->getOffset()[1]};
+	float size[2] = {0.025f, container->getSize()[1]};
+
+	for(int i=0; i<arraySize; i++) {
+		offset[0] = 0.05f*components.size();
+		DreamSlider* slider = new DreamSlider(sliderArray+i, offset, size, color, minValue, maxValue);
+		components.push_back(slider);
+	}
+}
+
 std::vector<DreamComponent*> DreamContainer::getComponents() {
 	return components;
 }

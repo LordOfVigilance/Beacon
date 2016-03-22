@@ -22,6 +22,7 @@ public:
 	void addComponent(Method);
 	void addComponent(float*, float, float);
 	void addComponent(float*, int, float, float);
+	void addComponent(float*, int, float, float, float[]);
 
 	std::vector<DreamComponent*> getComponents();
 };

@@ -4,10 +4,25 @@
 #include "glm\mat4x4.hpp"
 #include "glm\gtx\transform.hpp"
 
+#include "tinyxml2.h"
+
+enum {
+	COLLADAE,
+	WAVEFORM,
+	PLY
+};
+
+struct DaeGeom {
+	void* data;
+	int size;
+	unsigned int stride;
+};
+
 class Model
 {
 public:
 	Model(GLchar*);
+	Model(GLchar*, int);
 	~Model(void);
 
 	void scale(glm::vec3);
@@ -25,7 +40,9 @@ public:
 	glm::mat4x4 getMVP();
 	void setVP(glm::mat4x4);
 	
-	static bool loadObjIndexed(const char *, std::vector<float>&, std::vector<float>&, std::vector<unsigned short>&);
+	static bool loadColladaeIndexed(const char*, DaeGeom*, DaeGeom*, DaeGeom*);
+	static bool loadPLYIndexed(const char*, std::vector<GLfloat>&, std::vector<GLfloat>&, std::vector<GLushort>&, std::vector<GLfloat>&);
+	static bool loadObjIndexed(const char *, std::vector<GLfloat>&, std::vector<GLfloat>&, std::vector<GLushort>&);
 
 private:	
 	GLuint vao;

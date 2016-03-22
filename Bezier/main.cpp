@@ -122,16 +122,16 @@ void keyCallback (GLFWwindow * window, int key, int scancode, int action, int mo
 	if (action == GLFW_PRESS)
 	{
 		if (key == GLFW_KEY_S || key == GLFW_KEY_DOWN)
-			rotation.y += 0.01;
+			rotation.y += 0.01f;
 
 		else if (key == GLFW_KEY_W || key == GLFW_KEY_UP)
-			rotation.y -= 0.01;
+			rotation.y -= 0.01f;
 
 		else if (key == GLFW_KEY_D || key == GLFW_KEY_RIGHT)
-			rotation.x += 0.01;
+			rotation.x += 0.01f;
 
 		else if (key == GLFW_KEY_A || key == GLFW_KEY_LEFT)
-			rotation.x -= 0.01;
+			rotation.x -= 0.01f;
 
 		else if (key ==  GLFW_KEY_ESCAPE)
 		{

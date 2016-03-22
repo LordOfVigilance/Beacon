@@ -31,5 +31,5 @@ void main(void) {
 	point.y += sinValue*((texture(texDisplacement, tc).r-0.5)*dmap_depth);
 
 	gl_Position = mvp*point;
-	tesOut.textureCoord = textureCoord;
+	tesOut.textureCoord = tc;
 }

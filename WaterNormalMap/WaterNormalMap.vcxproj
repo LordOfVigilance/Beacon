@@ -52,12 +52,12 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Spectrum\Code\C++\OpenGL\Pillup\external\glew-1.13.0\include;C:\Users\Spectrum\Code\C++\OpenGL\Pillup\external\glfw-3.1.1\include;C:\Users\Spectrum\Code\C++\OpenGL\Pillup\external;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\external\glew-1.13.0\include;..\external\glfw-3.1.1\include;..\external;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Users\Spectrum\Code\C++\OpenGL\Pillup\external\glew-1.13.0\lib\Release\Win32;C:\Users\Spectrum\Code\C++\OpenGL\Pillup\external\glfw-3.1.1\lib-vc2012;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\external\glew-1.13.0\lib\Release\Win32;..\external\glfw-3.1.1\lib-vc2012;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>opengl32.lib;glfw3.lib;glfw3dll.lib;glew32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -87,15 +87,21 @@
     <ClCompile Include="DreamSlider.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Model.cpp" />
+    <ClCompile Include="tinyxml2.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="button.frag" />
     <None Include="button.vert" />
+    <None Include="plyColor.frag" />
+    <None Include="plyColor.geom" />
+    <None Include="plyColor.vert" />
     <None Include="rain.frag" />
     <None Include="rain.geom" />
     <None Include="rain.vert" />
     <None Include="reflection.frag" />
     <None Include="reflection.vert" />
+    <None Include="shadowDepth.frag" />
+    <None Include="shadowDepth.vert" />
     <None Include="simplePass.frag" />
     <None Include="tex.frag" />
     <None Include="tex.vert" />
@@ -104,6 +110,9 @@
     <None Include="waterNM.tcs" />
     <None Include="waterNM.tes" />
     <None Include="waterNM.vert" />
+    <None Include="wave.frag" />
+    <None Include="wave.geom" />
+    <None Include="wave.vert" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="simplePass.vert" />
@@ -116,6 +125,7 @@
     <ClInclude Include="DreamRenderable.h" />
     <ClInclude Include="DreamSlider.h" />
     <ClInclude Include="Model.h" />
+    <ClInclude Include="tinyxml2.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

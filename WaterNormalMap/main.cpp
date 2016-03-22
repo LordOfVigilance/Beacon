@@ -108,7 +108,10 @@ int main(void) {
 
 	GLuint simpleProgram = createProgram("simplePass.vert", NULL, NULL, NULL, "simplePass.frag");
 	GLuint rainProgram = createProgram("rain.vert", "rain.geom", NULL, NULL, "rain.frag");
+	GLuint plyColorProgram = createProgram("plyColor.vert", "plyColor.geom", NULL, NULL, "plyColor.frag");
+	GLuint waveProgram = createProgram("wave.vert", "wave.geom", NULL, NULL, "wave.frag");
 	GLuint buttonProgram = createProgram("button.vert", NULL, NULL, NULL, "button.frag");
+	GLuint shadowProgram = createProgram("shadowDepth.vert", NULL, NULL, NULL, "shadowDepth.frag");
 	
 	GLuint texProgram = createProgram("tex.vert", NULL, NULL, NULL, "tex.frag");
 	GLuint reflectionProgram = createProgram("reflection.vert", NULL, NULL, NULL, "reflection.frag");
@@ -143,7 +146,7 @@ int main(void) {
 	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-	glTexParameterfv(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_BORDER_COLOR, &glm::vec3(1.0, 0.0, 1.0)[0]);
+	glTexParameterfv(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_BORDER_COLOR, &glm::vec4(1.0, 0.0, 1.0, 1.0)[0]);
 
 	GLuint frameBufferColorTextureName;
 	glGenTextures(1, &frameBufferColorTextureName);
@@ -154,7 +157,7 @@ int main(void) {
 	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-	glTexParameterfv(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_BORDER_COLOR, &glm::vec3(1.0, 0.0, 1.0)[0]);
+	glTexParameterfv(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_BORDER_COLOR, &glm::vec4(1.0, 0.0, 1.0, 1.0)[0]);
 
 	GLuint frameBufferDepthTextureName;
 	glGenTextures(1, &frameBufferDepthTextureName);
@@ -190,12 +193,48 @@ int main(void) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
 
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, FBreflectionDepth, 0);
-
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, FBreflectionDepth, 0);
 	glDrawBuffer(GL_NONE);
 	
 	if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-		return false;	
+		return false;
+
+	////////////////////////////
+	//Shadow Buffer
+	////////////////////////////
+	const int DEPTH_MAP_WIDTH = 1024;
+	const int DEPTH_MAP_HEIGHT = 1024;
+
+	GLuint depthMapFBO;
+	glGenFramebuffers(1, &depthMapFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+
+	GLuint depthMap;
+	glGenTextures(1, &depthMap);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, DEPTH_MAP_WIDTH, DEPTH_MAP_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	float* depth = new float(0.0f);
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, depth);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+
+	if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		return false;
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	////////////////////////////
+	//End of Shadow Framebuffer
+	///////////////////////////
 
 	GLuint vao;
 	glGenVertexArrays(1, &vao);
@@ -209,6 +248,17 @@ int main(void) {
 	Model lighthouse("Models/Lighthouse.obj");	
 	Model monkey("Models/Monkey.obj");
 	Model ship("Models/Ship.obj");
+	Model room("Models/room_thickwalls2.obj");
+	Model wave("Models/wave.obj");
+	
+	Model plyPlane("Models/plane.ply", PLY);
+	Model plyCube("Models/cube.ply", PLY);
+	
+	//Model cube("Models/cube.dae", COLLADAE);
+	//Model land("Models/Land.dae", COLLADAE);
+	//Model lighthouse("Models/Lighthouse.dae", COLLADAE);
+	//Model monkey("Models/Monkey.dae", COLLADAE);
+	//Model ship("Models/Ship.dae", COLLADAE);
 
 	camera.rotation = glm::vec2();
 	camera.translation = glm::vec3();
@@ -240,6 +290,11 @@ int main(void) {
 
 	ship.translate(glm::vec3(70.0, 0.0, 25.0));
 	ship.rotate(90.0f, glm::vec3(0.0, 1.0, 0.0));
+	
+	room.scale(glm::vec3(1.0, 1.0, 1.0));
+	room.translate(glm::vec3(0.0, 0.0, 0.0));
+
+	//cube.translate(glm::vec3(0.0, 1.0, 0.0));
 
 	glm::mat4 mvpWater = perspectiveMatrix * viewMatrix * modelMatrixWater;
 	glm::mat4 mvpLight = perspectiveMatrix * viewMatrix * modelMatrixLight;	
@@ -254,6 +309,14 @@ int main(void) {
 	GLfloat var4 = 340.0f;
 	GLfloat var5 = 580.0f;
 	GLfloat var6 = 260.0f;
+	GLfloat bias = 0.003f;
+	GLfloat shadowPos[3] = {10.0f, 10.0f, 3.6f};
+	GLfloat shadowSliderColor[4] = {0.0f, 0.0f, 1.0f, 0.3f};
+	GLfloat sphereControls[2] = {1.0f, 1.0f};
+	GLfloat sphereControlsSliderColor[4] = {1.0f, 0.0f, 0.0f, 0.3f};
+	GLfloat spherePosition[3] = {1.0f, 1.0f, 1.0f};
+	GLfloat spherePositionSliderColor[4] = {1.0f, 0.0f, 0.0f, 0.3f};
+
 	GLfloat textureSelect = 0.0;
 
 	GLfloat dmapDepth = -0.4f;
@@ -275,6 +338,10 @@ int main(void) {
 	guiContainer->addComponent(&var4, 0.1f, 1000.0f);
 	guiContainer->addComponent(&var5, 0.1f, 1000.0f);
 	guiContainer->addComponent(&var6, 0.1f, 1000.0f);
+	guiContainer->addComponent(&bias, -0.1f, 0.1f);
+	guiContainer->addComponent(&shadowPos[0], 3, -30.0f, 30.0f, shadowSliderColor);
+	guiContainer->addComponent(&sphereControls[0], 2, -20.0f, 20.0f, sphereControlsSliderColor);
+	guiContainer->addComponent(&spherePosition[0], 3, -10.0f, 10.0f, spherePositionSliderColor);
 	//guiContainer->addComponent(&modelMatrixLight[3][0], -1000.0f, 1000.0f);
 	//guiContainer->addComponent(&modelMatrixLight[3][1], -1000.0f, 1000.0f);
 	//guiContainer->addComponent(&modelMatrixLight[3][2], -1000.0f, 1000.0f);
@@ -293,6 +360,11 @@ int main(void) {
 
 		float sinValue = (sin(time)/4.0f + 1.25f);
 
+		wave.translate(-camera.translation);
+		wave.rotate(camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
+
+		/////////////////
+		//Camera Controls
 		viewMatrix = glm::rotate(viewMatrix, camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
 		viewMatrix = glm::translate(viewMatrix, camera.translation);
 		reflectionViewMatrix = glm::rotate(reflectionViewMatrix, camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
@@ -301,6 +373,10 @@ int main(void) {
 		reflectionViewMatrix = glm::translate(reflectionViewMatrix, cameraReflection);
 		mvpLight = perspectiveMatrix*viewMatrix*modelMatrixLight;
 		mvpWater = perspectiveMatrix*viewMatrix*modelMatrixWater;
+
+
+		//End of Camera Controls
+		////////////////
 
 		glm::vec4 mvpLightPos = lightPos*mvpLight;
 		glm::vec4 mvpEyePos = glm::vec4(eye, 1.0)*mvpLight;
@@ -317,26 +393,81 @@ int main(void) {
 		//Land
 		land.setVP(perspectiveMatrix*reflectionViewMatrix);
 		glUniformMatrix4fv(1, 1, GL_FALSE, &land.getMatrix()[0][0]);
-		land.render();
+		//land.render();
 
 		//Lighthouse
 		lighthouse.setVP(perspectiveMatrix*reflectionViewMatrix);
 		glUniformMatrix4fv(1, 1, GL_FALSE, &lighthouse.getMatrix()[0][0]);
-		lighthouse.render();
+		//lighthouse.render();
 		
 		//Monkey
 		monkey.setVP(perspectiveMatrix*reflectionViewMatrix);
 		glUniformMatrix4fv(1, 1, GL_FALSE, &monkey.getMatrix()[0][0]);
-		monkey.render();
+		//monkey.render();
 		
 		//Ship
 		ship.setVP(perspectiveMatrix*reflectionViewMatrix);
 		glUniformMatrix4fv(1, 1, GL_FALSE, &ship.getMatrix()[0][0]);
-		ship.render();
+		//ship.render();
+
+		//Room
+		room.setVP(perspectiveMatrix*reflectionViewMatrix);
+		glUniformMatrix4fv(1, 1, GL_FALSE, &room.getMatrix()[0][0]);
+		room.render();
 
 		glDisable(GL_CLIP_DISTANCE0);
 
+		///////////////////////////
+		//Draw to the Shadow Buffer
+		///////////////////////////
+		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+		glViewport(0, 0, DEPTH_MAP_WIDTH, DEPTH_MAP_HEIGHT);
+		glClearBufferfv(GL_DEPTH, 0, clearDepthValue);
+		glUseProgram(shadowProgram);
+
+		glm::vec3 lightInvDir = glm::vec3(shadowPos[0], shadowPos[1], shadowPos[2]);
+
+		//Compute the MVP matrix from the light's point of view
+		glm::mat4 depthProjectionMatrix = glm::ortho<float>(-10, 10, -10, 10, -10, 20);
+		glm::mat4 depthViewMatrix = glm::lookAt(lightInvDir, glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+		glm::mat4 depthVP = depthProjectionMatrix * depthViewMatrix;
+
+		glm::mat4 depthBiasMatrix(0.5, 0.0, 0.0, 0.0,
+								  0.0, 0.5, 0.0, 0.0,
+								  0.0, 0.0, 0.5, 0.0,
+								  0.5, 0.5, 0.5, 1.0);
+		glm::mat4 depthBiasMVP = depthBiasMatrix*depthVP;
+		
+		//Land
+		land.setVP(depthVP);
+		//land.render();
+
+		//Lighthouse
+		lighthouse.setVP(depthVP);
+		lighthouse.render();
+		
+		//Monkey
+		monkey.setVP(depthVP);
+		monkey.render();
+		
+		//Ship
+		ship.setVP(depthVP);
+		//ship.render();
+		
+		//Room
+		room.setVP(depthVP);
+		room.render();
+		
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		////////////////////////
+		//End of Shadow Buffer
+		////////////////////////
+
+		/////////////////////////
 		//Draw to FrameBuffer
+		/////////////////////////
+
 		glBindFramebuffer(GL_FRAMEBUFFER, frameBufferName);
 
 		glViewport(0, 0, 1280, 720);
@@ -349,21 +480,89 @@ int main(void) {
 		glUniform3fv(6, 1, &lightColor[0]);
 		glUniform1f(7, lightPower);
 
+		glUniform1f(10, bias);
+		
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+
+		//Cube
+		//cube.setVP(perspectiveMatrix*viewMatrix);
+		//cube.render();
+
 		//Land
 		land.setVP(perspectiveMatrix*viewMatrix);
-		land.render();
+		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*land.getMatrix();
+		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+		//land.render();
 
 		//Lighthouse
 		lighthouse.setVP(perspectiveMatrix*viewMatrix);
-		lighthouse.render();
+		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*lighthouse.getMatrix();
+		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+		//lighthouse.render();
 		
 		//Monkey
 		monkey.setVP(perspectiveMatrix*viewMatrix);
-		monkey.render();
+		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*monkey.getMatrix();
+		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+		//monkey.render();
 		
 		//Ship
 		ship.setVP(perspectiveMatrix*viewMatrix);
-		ship.render();
+		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*ship.getMatrix();
+		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+		//ship.render();
+
+		//Room
+		room.setVP(perspectiveMatrix*viewMatrix);
+		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*room.getMatrix();
+		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+		//room.render();
+
+
+
+		glUseProgram(plyColorProgram);
+		glUniform3fv(5, 1, &mvpLightPosCorrect[0]);
+		glUniform3fv(6, 1, &lightColor[0]);
+		glUniform1f(7, lightPower);
+
+		glUniform1f(10, bias);
+		
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+		
+		//PLY Cube
+		plyCube.setVP(perspectiveMatrix*viewMatrix);
+		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*plyCube.getMatrix();
+		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+		plyCube.render();
+		
+		//PLY Plane
+		plyPlane.setVP(perspectiveMatrix*viewMatrix);
+		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*plyPlane.getMatrix();
+		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+		plyPlane.render();
+
+		//Wave
+		glUseProgram(waveProgram);
+		glUniform3fv(5, 1, &mvpLightPosCorrect[0]);
+		glUniform3fv(6, 1, &lightColor[0]);
+		glUniform1f(7, lightPower);
+		glUniform1f(8, sphereControls[0]);
+		glUniform1f(9, sphereControls[1]);
+
+		glUniform1f(10, bias);
+		glUniform3fv(11, 1, &spherePosition[0]);
+		
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+
+		wave.setVP(perspectiveMatrix*viewMatrix);
+		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*wave.getMatrix();
+		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+		//wave.render();
+
+		glBindTexture(GL_TEXTURE_2D, 0);
 
 		//Water
 		glDepthMask(GL_FALSE);
@@ -416,7 +615,7 @@ int main(void) {
 		glUniform1f(uniforms.var5, var5);
 		glUniform1f(uniforms.var6, var6);
 
-		glDrawArraysInstanced(GL_PATCHES, 0, 4, 256*256);
+		//glDrawArraysInstanced(GL_PATCHES, 0, 4, 256*256);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		
 		glDepthMask(GL_TRUE);
@@ -434,10 +633,20 @@ int main(void) {
 		glViewport(0, 0, 1280, 720);
 		glClearBufferfv(GL_COLOR, 0, &clearColorValue[0]);
 		glClearBufferfv(GL_DEPTH, 0, clearDepthValue);
-				
+		
+		//Copy from one framebuffer to another
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, frameBufferName);
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-		glBlitFramebuffer(0, 0, 1280, 720, 0, 0, 1280, 720, GL_COLOR_BUFFER_BIT, GL_NEAREST); 
+		glBlitFramebuffer(0, 0, 1280, 720, 0, 0, 1280, 720, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+		//Copy from texture to the framebuffer
+		//glUseProgram(texProgram);
+		
+		//glActiveTexture(GL_TEXTURE0);
+		//glBindTexture(GL_TEXTURE_2D, depthMap);
+
+		//glDrawArrays(GL_QUADS, 0, 4);
+
 
 		//Button
 		if(drawButtons) {
@@ -571,28 +780,71 @@ void keyCallback (GLFWwindow * window, int key, int scancode, int action, int mo
 	if (action == GLFW_PRESS)
 	{
 		if (key == GLFW_KEY_E || key == GLFW_KEY_RIGHT)
-			camera.rotation.x -= 0.01f;
+			camera.rotation.x -= 0.02f;
 
 		else if (key == GLFW_KEY_Q || key == GLFW_KEY_LEFT)
-			camera.rotation.x += 0.01f;
+			camera.rotation.x += 0.02f;
 
 		else if (key == GLFW_KEY_W)
-			camera.translation.z += 0.1f;
+			camera.translation.z += 0.2f;
 		
 		else if (key == GLFW_KEY_A)
-			camera.translation.x += 0.1f;
+			camera.translation.x += 0.2f;
 		
 		else if (key == GLFW_KEY_S)
-			camera.translation.z -= 0.1f;
+			camera.translation.z -= 0.2f;
 		
 		else if (key == GLFW_KEY_D)
-			camera.translation.x -= 0.1f;
+			camera.translation.x -= 0.2f;
 		
 		else if (key == GLFW_KEY_X)
-			camera.translation.y -= 0.1f;
+			camera.translation.y -= 0.2f;
 		
 		else if (key == GLFW_KEY_Z)
-			camera.translation.y += 0.1f;
+			camera.translation.y += 0.2f;
+
+		else if (key == GLFW_KEY_V)
+			texOffset.x += 0.1f;
+
+		else if (key == GLFW_KEY_C)
+			texOffset.x -= 0.1f;
+
+		else if (key == GLFW_KEY_B)
+			drawButtons = !drawButtons;
+		
+		if (key ==  GLFW_KEY_ESCAPE)
+		{
+			glfwTerminate();
+			terminated = true;
+		}
+	}
+
+	
+	if (action == GLFW_RELEASE)
+	{
+		if (key == GLFW_KEY_E || key == GLFW_KEY_RIGHT)
+			camera.rotation.x = 0.00f;
+
+		else if (key == GLFW_KEY_Q || key == GLFW_KEY_LEFT)
+			camera.rotation.x = 0.00f;
+
+		else if (key == GLFW_KEY_W)
+			camera.translation.z = 0.0f;
+		
+		else if (key == GLFW_KEY_A)
+			camera.translation.x = 0.0f;
+		
+		else if (key == GLFW_KEY_S)
+			camera.translation.z = 0.0f;
+		
+		else if (key == GLFW_KEY_D)
+			camera.translation.x = 0.0f;
+		
+		else if (key == GLFW_KEY_X)
+			camera.translation.y = 0.0f;
+		
+		else if (key == GLFW_KEY_Z)
+			camera.translation.y = 0.0f;
 
 		else if (key == GLFW_KEY_V)
 			texOffset.x += 0.1f;
@@ -752,7 +1004,8 @@ std::string readFile (GLchar * fileName)
 	return fileData;
 }
 
-GLuint createShaderFromCode (GLenum shaderType, std::string code) {
+GLuint createShaderFromCode (GLenum shaderType, std::string code)
+{
 	char const* source_code_pointer = code.c_str();
 	GLuint shaderInt = glCreateShader(shaderType);
 	glShaderSource(shaderInt, 1, &source_code_pointer, NULL);
