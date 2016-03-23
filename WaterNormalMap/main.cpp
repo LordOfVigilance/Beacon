@@ -251,8 +251,9 @@ int main(void) {
 	Model room("Models/room_thickwalls2.obj");
 	Model wave("Models/wave.obj");
 	
-	Model plyPlane("Models/plane.ply", PLY);
-	Model plyCube("Models/cube.ply", PLY);
+	Model plyPlane("Models/plane.ply", PLYMALLOC);
+	Model plyCube("Models/cube.ply", PLYMALLOC);
+	Model plyWorld("Models/World.ply", PLYMALLOC);
 	
 	//Model cube("Models/cube.dae", COLLADAE);
 	//Model land("Models/Land.dae", COLLADAE);
@@ -267,7 +268,7 @@ int main(void) {
 	glm::vec3 lightColor(0.6, 0.6, 0.9);
 	GLfloat lightPower(1.0);
 
-	glm::vec3 eye(0.0, 2.5, 3.0);
+	glm::vec3 eye(0.0, 2.5, 1.0);
 	glm::vec3 center(0.0, 2.5, 0.0);
 	glm::vec3 up(0.0, -1.0, 0.0);
 	glm::mat4 viewMatrix = glm::lookAt(eye, center, up);
@@ -525,7 +526,8 @@ int main(void) {
 		glUniform3fv(5, 1, &mvpLightPosCorrect[0]);
 		glUniform3fv(6, 1, &lightColor[0]);
 		glUniform1f(7, lightPower);
-
+		
+		glUniformMatrix4fv(9, 1, GL_FALSE, &viewMatrix[0][0]);
 		glUniform1f(10, bias);
 		
 		glActiveTexture(GL_TEXTURE0);
@@ -535,13 +537,23 @@ int main(void) {
 		plyCube.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*plyCube.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		plyCube.render();
+		glUniformMatrix4fv(8, 1, GL_FALSE, &plyCube.getMatrix()[0][0]);
+		plyCube.renderPLY();
 		
 		//PLY Plane
 		plyPlane.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*plyPlane.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		plyPlane.render();
+		glUniformMatrix4fv(8, 1, GL_FALSE, &plyPlane.getMatrix()[0][0]);
+		plyPlane.renderPLY();
+		
+		
+		//PLY World
+		plyWorld.setVP(perspectiveMatrix*viewMatrix);
+		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*plyWorld.getMatrix();
+		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+		glUniformMatrix4fv(8, 1, GL_FALSE, &plyWorld.getMatrix()[0][0]);
+		plyWorld.renderPLY();
 
 		//Wave
 		glUseProgram(waveProgram);

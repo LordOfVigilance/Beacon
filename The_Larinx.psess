@@ -92,6 +92,9 @@
     <Report>
       <Path>The_Larinx160318.vsp</Path>
     </Report>
+    <Report>
+      <Path>The_Larinx160322.vsp</Path>
+    </Report>
   </Reports>
   <Launches>
     <ProjBinary>

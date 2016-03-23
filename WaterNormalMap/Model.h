@@ -1,5 +1,8 @@
 #pragma once
 #include <vector>
+#include <fstream>
+#include <sys/stat.h>
+
 #include "GL/GLEW.h"
 #include "glm\mat4x4.hpp"
 #include "glm\gtx\transform.hpp"
@@ -9,7 +12,8 @@
 enum {
 	COLLADAE,
 	WAVEFORM,
-	PLY
+	PLY,
+	PLYMALLOC
 };
 
 struct DaeGeom {
@@ -30,6 +34,7 @@ public:
 	void rotate(GLfloat, glm::vec3);
 
 	void render();
+	void renderPLY();
 
 	GLuint getVAO();
 	GLuint getVBO();
@@ -41,7 +46,8 @@ public:
 	void setVP(glm::mat4x4);
 	
 	static bool loadColladaeIndexed(const char*, DaeGeom*, DaeGeom*, DaeGeom*);
-	static bool loadPLYIndexed(const char*, std::vector<GLfloat>&, std::vector<GLfloat>&, std::vector<GLushort>&, std::vector<GLfloat>&);
+	static bool loadPLYIndexed(const char*, std::vector<GLfloat>&, std::vector<GLfloat>&, std::vector<GLuint>&, std::vector<GLfloat>&);
+	static bool loadPLYIndexedMalloc(const char*, GLfloat**, GLfloat**, GLfloat**, GLuint**, int*, int*);
 	static bool loadObjIndexed(const char *, std::vector<GLfloat>&, std::vector<GLfloat>&, std::vector<GLushort>&);
 
 private:	
