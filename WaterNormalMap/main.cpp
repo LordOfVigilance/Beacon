@@ -262,7 +262,7 @@ int main(void) {
 	//Model ship("Models/Ship.dae", COLLADAE);
 
 	camera.rotation = glm::vec2();
-	camera.translation = glm::vec3();
+	camera.translation = glm::vec3(0.0f,0.0f,0.0f);
 	
 	glm::vec4 lightPos(20.0, -120.0, 580.0, 1.0);
 	glm::vec3 lightColor(0.6, 0.6, 0.9);
@@ -394,12 +394,12 @@ int main(void) {
 		//Land
 		land.setVP(perspectiveMatrix*reflectionViewMatrix);
 		glUniformMatrix4fv(1, 1, GL_FALSE, &land.getMatrix()[0][0]);
-		//land.render();
+		land.render();
 
 		//Lighthouse
 		lighthouse.setVP(perspectiveMatrix*reflectionViewMatrix);
 		glUniformMatrix4fv(1, 1, GL_FALSE, &lighthouse.getMatrix()[0][0]);
-		//lighthouse.render();
+		lighthouse.render();
 		
 		//Monkey
 		monkey.setVP(perspectiveMatrix*reflectionViewMatrix);
@@ -409,7 +409,7 @@ int main(void) {
 		//Ship
 		ship.setVP(perspectiveMatrix*reflectionViewMatrix);
 		glUniformMatrix4fv(1, 1, GL_FALSE, &ship.getMatrix()[0][0]);
-		//ship.render();
+		ship.render();
 
 		//Room
 		room.setVP(perspectiveMatrix*reflectionViewMatrix);
@@ -441,7 +441,7 @@ int main(void) {
 		
 		//Land
 		land.setVP(depthVP);
-		//land.render();
+		land.render();
 
 		//Lighthouse
 		lighthouse.setVP(depthVP);
@@ -453,7 +453,7 @@ int main(void) {
 		
 		//Ship
 		ship.setVP(depthVP);
-		//ship.render();
+		ship.render();
 		
 		//Room
 		room.setVP(depthVP);
@@ -494,13 +494,13 @@ int main(void) {
 		land.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*land.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		//land.render();
+		land.render();
 
 		//Lighthouse
 		lighthouse.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*lighthouse.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		//lighthouse.render();
+		lighthouse.render();
 		
 		//Monkey
 		monkey.setVP(perspectiveMatrix*viewMatrix);
@@ -512,13 +512,13 @@ int main(void) {
 		ship.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*ship.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		//ship.render();
+		ship.render();
 
 		//Room
 		room.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*room.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		//room.render();
+		room.render();
 
 
 
@@ -572,7 +572,7 @@ int main(void) {
 		wave.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*wave.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		//wave.render();
+		wave.render();
 
 		glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -627,7 +627,7 @@ int main(void) {
 		glUniform1f(uniforms.var5, var5);
 		glUniform1f(uniforms.var6, var6);
 
-		//glDrawArraysInstanced(GL_PATCHES, 0, 4, 256*256);
+		glDrawArraysInstanced(GL_PATCHES, 0, 4, 256*256);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		
 		glDepthMask(GL_TRUE);
