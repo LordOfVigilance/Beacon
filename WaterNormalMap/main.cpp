@@ -17,6 +17,7 @@
 #include "DreamContainer.h"
 
 #include "Model.h"
+#include "Player.h"
 
 struct {
 	GLint mvp;
@@ -70,6 +71,8 @@ GLuint createShaderFromCode (GLenum, std::string);
 ImagePBM readNetpbmFile(GLchar *);
 GLuint createRTexture(GLchar *);
 GLuint createRGBTexture(GLchar *);
+void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView);
+
 
 void printFunction();
 
@@ -84,6 +87,19 @@ int main(void) {
 	GLFWwindow* window = openGLInit(1280, 720, "Water Normal Mapped");
 
 	GLuint program = createProgram("waterNM.vert", "waterNM.geom", "waterNM.tcs", "waterNM.tes", "waterNM.frag");
+
+
+
+	int width;
+	int height;
+	glfwGetWindowSize(window, &width, &height);
+
+
+	glfwSetCursorPos(window, width / 2, height / 2);
+
+
+
+
 	uniforms.dmapDepth = glGetUniformLocation(program, "dmap_depth");
 	uniforms.mvp = glGetUniformLocation(program, "mvp");
 	uniforms.offset = glGetUniformLocation(program, "offset");
@@ -262,8 +278,22 @@ int main(void) {
 	//Model ship("Models/Ship.dae", COLLADAE);
 
 	camera.rotation = glm::vec2();
-	camera.translation = glm::vec3(0.0f,0.0f,0.0f);
-	
+
+
+
+
+
+
+	Player player = Player(glm::vec3(0, 2, 0), glm::vec2(3.14f, 0.0f), Model("Models/Monkey.obj"));
+
+	camera.translation = player.getPosition() + glm::vec3(0.0f, 2.0f, 4.0f);
+
+
+
+
+
+
+
 	glm::vec4 lightPos(20.0, -120.0, 580.0, 1.0);
 	glm::vec3 lightColor(0.6, 0.6, 0.9);
 	GLfloat lightPower(1.0);
@@ -355,6 +385,9 @@ int main(void) {
 	while(!glfwWindowShouldClose(window) && !terminated) {
 		glfwPollEvents();
 
+		computeMatricesFromInputs(window, &viewMatrix);
+
+
 		float time = (float) glfwGetTime();
 		texOffset.x = -time/20.0f;
 		texOffset.y = time/40.0f;
@@ -366,8 +399,8 @@ int main(void) {
 
 		/////////////////
 		//Camera Controls
-		viewMatrix = glm::rotate(viewMatrix, camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
-		viewMatrix = glm::translate(viewMatrix, camera.translation);
+		//viewMatrix = glm::rotate(viewMatrix, camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
+		//viewMatrix = glm::translate(viewMatrix, camera.translation);
 		reflectionViewMatrix = glm::rotate(reflectionViewMatrix, camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
 
 		glm::vec3 cameraReflection (camera.translation.x, -camera.translation.y, camera.translation.z);
@@ -789,7 +822,7 @@ GLFWwindow* openGLInit(GLint width, GLint height, GLchar* windowTitle) {
 
 void keyCallback (GLFWwindow * window, int key, int scancode, int action, int mods)
 {
-	if (action == GLFW_PRESS)
+	/*if (action == GLFW_PRESS)
 	{
 		if (key == GLFW_KEY_E || key == GLFW_KEY_RIGHT)
 			camera.rotation.x -= 0.02f;
@@ -873,6 +906,7 @@ void keyCallback (GLFWwindow * window, int key, int scancode, int action, int mo
 			terminated = true;
 		}
 	}
+	*/
 }
 
 void mouseMoveCallback(GLFWwindow * window, double mouseX, double mouseY) {
@@ -1036,4 +1070,88 @@ GLuint createShaderFromCode (GLenum shaderType, std::string code)
 	}
 
 	return shaderInt;
+}
+
+void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView)
+{
+
+	glm::mat4 ViewMatrix = *cameraView;
+
+	// glfwGetTime is called only once, the first time this function is called
+	static double lastTime = glfwGetTime();
+	// Initial horizontal angle : toward -Z
+	static float horizontalAngle = 3.14f;
+	// Initial vertical angle : none
+	static float verticalAngle = 0.0f;
+	// Initial Field of View
+	static float initialFoV = 45.0f;
+
+	static float speed = 3.0f; // 3 units / second
+	static float mouseSpeed = 0.005f;
+	// Compute time difference between current and last frame
+	double currentTime = glfwGetTime();
+	float deltaTime = float(currentTime - lastTime);
+
+	// Get mouse position
+	double xpos, ypos;
+	glfwGetCursorPos(window, &xpos, &ypos);
+
+	// Reset mouse position for next frame
+	int width;
+	int height;
+	glfwGetWindowSize(window, &width, &height);
+	glfwSetCursorPos(window, width / 2, height / 2);
+
+	// Compute new orientation
+	horizontalAngle += mouseSpeed * float(width / 2 - xpos);
+	verticalAngle += 0;//mouseSpeed * float(height / 2 - ypos);
+
+					   // Direction : Spherical coordinates to Cartesian coordinates conversion
+	glm::vec3 direction(
+		cos(verticalAngle) * sin(horizontalAngle),
+		sin(verticalAngle),
+		cos(verticalAngle) * cos(horizontalAngle)
+		);
+
+
+	// Right vector
+	glm::vec3 right = glm::vec3(sin(horizontalAngle - 3.14f / 2.0f), 0, cos(horizontalAngle - 3.14f / 2.0f));
+
+	// Up vector
+	glm::vec3 up = glm::cross(-right, direction);
+
+	// Move forward
+	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+		camera.translation += direction * deltaTime * speed;
+	}
+	// Move backward
+	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
+		camera.translation -= direction * deltaTime * speed;
+	}
+	// Strafe right
+	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+		camera.translation += right * deltaTime * speed;
+	}
+	// Strafe left
+	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
+		camera.translation -= right * deltaTime * speed;
+	}
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+		glfwTerminate();
+		terminated = true;
+	}
+
+	float FoV = initialFoV;// - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this. It's a bit too complicated for this beginner's tutorial, so it's disabled instead.
+
+						   // Camera matrix
+	ViewMatrix = glm::lookAt(
+		camera.translation,           // Camera is here
+		camera.translation + direction, // and looks here : at the same position, plus "direction"
+		up                  // Head is up (set to 0,-1,0 to look upside-down)
+		);
+
+	*cameraView = ViewMatrix;
+
+	// For the next frame, the "last time" will be "now"
+	lastTime = currentTime;
 }
