@@ -1187,7 +1187,7 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 
 
 	player->translate(player->getDirection() * deltaTime * player->getSpeed());
-	camera.translation = (player->getPosition() + ((player->getDirection() * 7.0f))) + glm::vec3(0.0f, 3.0f, 0.0f);
+	camera.translation = (player->getPosition() + ((-direction * 4.0f))) + glm::vec3(0.0f, 3.0f, 0.0f);
 
 	float FoV = initialFoV;// - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this. It's a bit too complicated for this beginner's tutorial, so it's disabled instead.
 
