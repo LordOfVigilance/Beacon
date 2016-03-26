@@ -11,6 +11,13 @@
 
 #include <vector>
 
+
+
+#include <iostream>
+
+
+
+
 #include "DreamButton.h"
 #include "DreamSlider.h"
 #include "DreamClickable.h"
@@ -71,11 +78,12 @@ GLuint createShaderFromCode (GLenum, std::string);
 ImagePBM readNetpbmFile(GLchar *);
 GLuint createRTexture(GLchar *);
 GLuint createRGBTexture(GLchar *);
-void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView);
+void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Player* player);
 
 
 void printFunction();
 
+const float PI = 3.14159265f;
 bool terminated = false;
 DreamClickable* buttonPressed;
 bool mousePressed = false;
@@ -317,13 +325,13 @@ int main(void) {
 	land.translate(glm::vec3(0.0, -0.4, 0.0));
 
 	lighthouse.scale(glm::vec3(1.0, 1.0, 1.0));
-	lighthouse.translate(glm::vec3(0.0, 0.0, 0.0));
+	lighthouse.translate(glm::vec3(0.0, 10.0, 0.0));
 
 	ship.translate(glm::vec3(70.0, 0.0, 25.0));
 	ship.rotate(90.0f, glm::vec3(0.0, 1.0, 0.0));
 	
 	room.scale(glm::vec3(1.0, 1.0, 1.0));
-	room.translate(glm::vec3(0.0, 0.0, 0.0));
+	room.translate(glm::vec3(0.0, 10.0, 0.0));
 
 	//cube.translate(glm::vec3(0.0, 1.0, 0.0));
 
@@ -385,7 +393,7 @@ int main(void) {
 	while(!glfwWindowShouldClose(window) && !terminated) {
 		glfwPollEvents();
 
-		computeMatricesFromInputs(window, &viewMatrix);
+		computeMatricesFromInputs(window, &viewMatrix, &player);
 
 
 		float time = (float) glfwGetTime();
@@ -438,6 +446,12 @@ int main(void) {
 		monkey.setVP(perspectiveMatrix*reflectionViewMatrix);
 		glUniformMatrix4fv(1, 1, GL_FALSE, &monkey.getMatrix()[0][0]);
 		//monkey.render();
+
+		//Player
+		Model hold = player.getModel();
+		hold.setVP(perspectiveMatrix*reflectionViewMatrix);
+		glUniformMatrix4fv(1, 1, GL_FALSE, &hold.getMatrix()[0][0]);
+		hold.render();
 		
 		//Ship
 		ship.setVP(perspectiveMatrix*reflectionViewMatrix);
@@ -483,6 +497,10 @@ int main(void) {
 		//Monkey
 		monkey.setVP(depthVP);
 		monkey.render();
+
+		//Player
+		hold.setVP(perspectiveMatrix*viewMatrix);
+		hold.render();
 		
 		//Ship
 		ship.setVP(depthVP);
@@ -534,6 +552,12 @@ int main(void) {
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*lighthouse.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
 		lighthouse.render();
+
+		//Player
+		hold.setVP(perspectiveMatrix*viewMatrix);
+		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*hold.getMatrix();
+		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+		hold.render();
 		
 		//Monkey
 		monkey.setVP(perspectiveMatrix*viewMatrix);
@@ -1072,7 +1096,7 @@ GLuint createShaderFromCode (GLenum shaderType, std::string code)
 	return shaderInt;
 }
 
-void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView)
+void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Player* player)
 {
 
 	glm::mat4 ViewMatrix = *cameraView;
@@ -1086,7 +1110,8 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView)
 	// Initial Field of View
 	static float initialFoV = 45.0f;
 
-	static float speed = 3.0f; // 3 units / second
+	static float speed = 7.0f; // 3 units / second
+	static float rotateSpeed = 0.02f;
 	static float mouseSpeed = 0.005f;
 	// Compute time difference between current and last frame
 	double currentTime = glfwGetTime();
@@ -1115,7 +1140,7 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView)
 
 
 	// Right vector
-	glm::vec3 right = glm::vec3(sin(horizontalAngle - 3.14f / 2.0f), 0, cos(horizontalAngle - 3.14f / 2.0f));
+	glm::vec3 right = glm::vec3(sin(horizontalAngle - PI / 2.0f), 0, cos(horizontalAngle - PI / 2.0f));
 
 	// Up vector
 	glm::vec3 up = glm::cross(-right, direction);
@@ -1135,6 +1160,22 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView)
 	// Strafe left
 	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
 		camera.translation -= right * deltaTime * speed;
+	}
+	//Player Controls
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+		player->translate(player->getDirection() * deltaTime * speed);
+	}
+	// Move backward
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+		player->translate(-player->getDirection() * deltaTime * speed);
+	}
+	// Strafe right
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+		player->rotatePlayer(-rotateSpeed * deltaTime);
+	}
+	// Strafe left
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+		player->rotatePlayer(+rotateSpeed * deltaTime);
 	}
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
 		glfwTerminate();

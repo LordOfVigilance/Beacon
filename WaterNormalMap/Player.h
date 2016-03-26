@@ -22,6 +22,7 @@ public:
 	Model getModel();
 
 private:
+	const float PI = 3.14159265f;
 	glm::vec3 position;
 	glm::vec2 rotation;
 	float scale;
