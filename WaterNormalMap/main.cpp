@@ -82,7 +82,9 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 
 
 void printFunction();
-
+bool locked = true;
+bool lockLock = false;
+glm::vec3 currentDirection = glm::vec3(0.0f,0.0f,0.0f);
 const float PI = 3.14159265f;
 bool terminated = false;
 DreamClickable* buttonPressed;
@@ -1128,16 +1130,39 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	glfwGetWindowSize(window, &width, &height);
 	glfwSetCursorPos(window, width / 2, height / 2);
 
-	// Compute new orientation
-	horizontalAngle += mouseSpeed * float(width / 2 - xpos);
-	verticalAngle += 0;//mouseSpeed * float(height / 2 - ypos);
-
-					   // Direction : Spherical coordinates to Cartesian coordinates conversion
+	if (!locked)
+	{
+		// Compute new orientation
+		horizontalAngle += mouseSpeed * float(width / 2 - xpos);
+		verticalAngle += 0;//mouseSpeed * float(height / 2 - ypos);
+	}
+	else
+	{
+		
+		if (player->getDirection().z < 0.0f && player->getDirection().x < 0.0f)
+		{
+			horizontalAngle = -asin(player->getDirection().x / cos(verticalAngle));
+		}
+		else if (player->getDirection().z < 0.0f)
+		{
+			horizontalAngle = acos(player->getDirection().z / cos(verticalAngle)) + PI;
+		}
+		else
+		{
+			horizontalAngle = asin(player->getDirection().x / cos(verticalAngle)) + PI;
+		}
+		
+		
+		
+	}
+						   // Direction : Spherical coordinates to Cartesian coordinates conversion
 	glm::vec3 direction(
 		cos(verticalAngle) * sin(horizontalAngle),
 		sin(verticalAngle),
 		cos(verticalAngle) * cos(horizontalAngle)
 		);
+	
+	
 
 
 	// Right vector
@@ -1180,25 +1205,73 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
 		player->rotatePlayer(+rotateSpeed * deltaTime);
 	}
+	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+		if (!lockLock)
+		{
+			lockLock = true;
+			if (locked)
+			{
+				locked = false;
+			}
+			else
+			{
+				locked = true;
+				horizontalAngle = PI;
+				direction = -player->getDirection();
+			}
+		}
+		
+	}
+	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_RELEASE)
+	{
+		lockLock = false;
+	}
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
 		glfwTerminate();
 		terminated = true;
 	}
 
+	if (locked)
+	{
+		float angle = acos(((currentDirection.x * direction.x) + (currentDirection.z * direction.z) + (currentDirection.y * direction.y)) / (sqrt(pow(currentDirection.x, 2) + pow(currentDirection.z, 2) + pow(currentDirection.y, 2)) * sqrt(pow(direction.x, 2) + pow(direction.z, 2) + pow(direction.y, 2))));
+		if (angle > 0.1f)
+		{
+			float ratio = 0.1f / angle;
+			glm::vec3 directionMove = (direction - currentDirection) * ratio;
+			currentDirection = currentDirection + directionMove;
+						glm::normalize(currentDirection);
+		}
+		else
+		{
+			currentDirection = direction;
+
+		}
+		
+		
+	}
+	else
+	{
+		currentDirection = direction;
+
+	}
+
+	
+	
 
 	player->translate(player->getDirection() * deltaTime * player->getSpeed());
-	camera.translation = (player->getPosition() + ((-direction * 4.0f))) + glm::vec3(0.0f, 3.0f, 0.0f);
+	camera.translation = (player->getPosition() + ((-currentDirection * 4.0f))) + glm::vec3(0.0f, 3.0f, 0.0f);
 
 	float FoV = initialFoV;// - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this. It's a bit too complicated for this beginner's tutorial, so it's disabled instead.
 
 						   // Camera matrix
 	ViewMatrix = glm::lookAt(
 		camera.translation,           // Camera is here
-		camera.translation + direction, // and looks here : at the same position, plus "direction"
+		camera.translation + currentDirection, // and looks here : at the same position, plus "direction"
 		up                  // Head is up (set to 0,-1,0 to look upside-down)
 		);
 
 	*cameraView = ViewMatrix;
+
 
 	// For the next frame, the "last time" will be "now"
 	lastTime = currentTime;
