@@ -1111,7 +1111,7 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	static float initialFoV = 45.0f;
 
 	static float speed = 7.0f; // 3 units / second
-	static float rotateSpeed = 0.02f;
+	static float rotateSpeed = 2.00f;
 	static float mouseSpeed = 0.005f;
 	// Compute time difference between current and last frame
 	double currentTime = glfwGetTime();
@@ -1164,6 +1164,12 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	//Player Controls
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
 		player->translate(player->getDirection() * deltaTime * speed);
+		std::cout << player->getDirection().x << " " << player->getDirection().z << std::endl;
+		std::cout << player->getPosition().x << " " << player->getPosition().z << std::endl;
+		glm::vec3 holder = (player->getPosition() + ((player->getDirection() * 3.0f))) + glm::vec3(0.0f, 2.0f, 0.0f);
+		camera.translation = holder;
+		std::cout << camera.translation.x << " " << camera.translation.z << std::endl << std::endl;
+
 	}
 	// Move backward
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {

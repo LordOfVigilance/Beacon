@@ -31,5 +31,8 @@ private:
 
 	const float minSize = 1.0f;
 	const float maxSize = 2.0f;
+
+
+	float radToDeg(float radian);
 };
 

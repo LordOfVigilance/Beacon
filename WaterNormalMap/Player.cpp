@@ -51,8 +51,10 @@ glm::vec2 Player::getRotation()
 void Player::rotatePlayer(float radians)
 {
 	rotation.x += radians;
-	float degrees = (radians * 180) / PI;
-	playerModel.rotate(degrees, glm::vec3(0.0f, 1.0f, 0.0f));
+
+	std::cout << radians << std::endl;
+
+	playerModel.rotate(radians, glm::vec3(0.0f, 1.0f, 0.0f));
 	if (rotation.x >= 2 * PI)
 	{
 		rotation.x -= 2 * PI;
@@ -61,8 +63,10 @@ void Player::rotatePlayer(float radians)
 	{
 		rotation.x += 2 * PI;
 	}
-	
+	std::cout << rotation.x << std::endl;
 	direction = glm::vec3(-cos(0.0f) * sin(rotation.x), sin(0.0f), -(cos(0.0f) * cos(rotation.x)));
+
+	std::cout << direction.x << " " << direction.z << std::endl;
 
 }
 
@@ -88,11 +92,20 @@ void Player::scalePlayerDown()
 
 void Player::translate(glm::vec3 translation)
 {
-	position += translation;
-	playerModel.translate(translation);
+	position -= translation;
+
+	float magnitude = sqrt(pow(translation.x,2) + pow(translation.z, 2));
+
+	playerModel.translate((glm::vec3(0.0f,0.0f,1.0f) * magnitude));
 }
 
 Model Player::getModel()
 {
 	return playerModel;
+}
+
+
+float Player::radToDeg(float radians)
+{
+	return (radians / PI) * 180;
 }
