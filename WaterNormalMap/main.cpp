@@ -292,7 +292,7 @@ int main(void) {
 
 
 
-	Player player = Player(glm::vec3(0, 2, 0), glm::vec2(3.14f, 0.0f), Model("Models/Monkey.obj"));
+	Player player = Player(glm::vec3(0, -0.1f, 0), glm::vec2(3.14f, 0.0f), Model("Models/wave.obj"));
 
 	camera.translation = player.getPosition() + glm::vec3(0.0f, 2.0f, 4.0f);
 
@@ -1113,6 +1113,7 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	static float speed = 7.0f; // 3 units / second
 	static float rotateSpeed = 2.00f;
 	static float mouseSpeed = 0.005f;
+	player->setSpeed(7.0f);
 	// Compute time difference between current and last frame
 	double currentTime = glfwGetTime();
 	float deltaTime = float(currentTime - lastTime);
@@ -1145,6 +1146,7 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	// Up vector
 	glm::vec3 up = glm::cross(-right, direction);
 
+
 	// Move forward
 	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
 		camera.translation += direction * deltaTime * speed;
@@ -1163,17 +1165,12 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	}
 	//Player Controls
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-		player->translate(player->getDirection() * deltaTime * speed);
-		std::cout << player->getDirection().x << " " << player->getDirection().z << std::endl;
-		std::cout << player->getPosition().x << " " << player->getPosition().z << std::endl;
-		glm::vec3 holder = (player->getPosition() + ((player->getDirection() * 3.0f))) + glm::vec3(0.0f, 2.0f, 0.0f);
-		camera.translation = holder;
-		std::cout << camera.translation.x << " " << camera.translation.z << std::endl << std::endl;
+		player->setSpeed(10.0f);
 
 	}
 	// Move backward
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-		player->translate(-player->getDirection() * deltaTime * speed);
+		player->setSpeed(5.0f);
 	}
 	// Strafe right
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
@@ -1187,6 +1184,10 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 		glfwTerminate();
 		terminated = true;
 	}
+
+
+	player->translate(player->getDirection() * deltaTime * player->getSpeed());
+	camera.translation = (player->getPosition() + ((player->getDirection() * 7.0f))) + glm::vec3(0.0f, 3.0f, 0.0f);
 
 	float FoV = initialFoV;// - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this. It's a bit too complicated for this beginner's tutorial, so it's disabled instead.
 

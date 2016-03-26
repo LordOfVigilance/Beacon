@@ -11,6 +11,7 @@ Player::Player() : playerModel("Models/Monkey.obj")
 	position = glm::vec3(0.0f, 0.0f, 0.0f);
 	rotation = glm::vec2(0.0f, 3.14f);
 	scale = 1.0f;
+	speed = 5.0f;
 	direction = glm::vec3(-cos(0.0f) * sin(rotation.x), sin(0.0f), -cos(0.0f) * cos(rotation.x));
 	playerModel.scale(glm::vec3(scale, scale, scale));
 	playerModel.translate(position);
@@ -22,6 +23,7 @@ Player::Player(glm::vec3 positionIn, glm::vec2 rotationIn, Model modelIn) : play
 	position = positionIn;
 	rotation = rotationIn;
 	scale = 1.0f;
+	speed = 5.0f;
 	direction = glm::vec3(-cos(0.0f) * sin(rotation.x), sin(0.0f), -cos(0.0f) * cos(rotation.x));
 	playerModel.scale(glm::vec3(scale, scale, scale));
 	playerModel.translate(position);
@@ -52,7 +54,6 @@ void Player::rotatePlayer(float radians)
 {
 	rotation.x += radians;
 
-	std::cout << radians << std::endl;
 
 	playerModel.rotate(radians, glm::vec3(0.0f, 1.0f, 0.0f));
 	if (rotation.x >= 2 * PI)
@@ -63,10 +64,8 @@ void Player::rotatePlayer(float radians)
 	{
 		rotation.x += 2 * PI;
 	}
-	std::cout << rotation.x << std::endl;
 	direction = glm::vec3(-cos(0.0f) * sin(rotation.x), sin(0.0f), -(cos(0.0f) * cos(rotation.x)));
 
-	std::cout << direction.x << " " << direction.z << std::endl;
 
 }
 
@@ -102,6 +101,16 @@ void Player::translate(glm::vec3 translation)
 Model Player::getModel()
 {
 	return playerModel;
+}
+
+float Player::getSpeed()
+{
+	return speed;
+}
+
+void Player::setSpeed(float speedIn)
+{
+	speed = speedIn;
 }
 
 

@@ -20,12 +20,16 @@ public:
 	void scalePlayerDown();
 	void translate(glm::vec3 translation);
 	Model getModel();
+	float getSpeed();
+
+	void setSpeed(float speedIn);
 
 private:
 	const float PI = 3.14159265f;
 	glm::vec3 position;
 	glm::vec2 rotation;
 	float scale;
+	float speed;
 	Model playerModel;
 	glm::vec3 direction;
 
