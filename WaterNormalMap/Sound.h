@@ -18,6 +18,7 @@ private:
 	ISoundSource* bgWater;
 	ISoundSource* grow;
 	int current;
+	bool sync;
 
 public:
 	Sound();

@@ -102,7 +102,7 @@ int main(void) {
 
 	GLuint program = createProgram("waterNM.vert", "waterNM.geom", "waterNM.tcs", "waterNM.tes", "waterNM.frag");
 
-	sounds.loadSounds(0);
+	sounds.loadSounds(1);
 
 	int width;
 	int height;
@@ -1208,6 +1208,12 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	// Strafe left
 	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
 		player->rotatePlayer(+rotateSpeed * deltaTime);
+	}
+	if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) {
+		sounds.play();
+	}
+	if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) {
+		sounds.stop();
 	}
 	if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS)
 	{

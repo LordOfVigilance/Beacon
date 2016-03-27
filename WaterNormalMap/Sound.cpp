@@ -28,6 +28,8 @@ Sound::Sound()
 	mEngine = createIrrKlangDevice();
 	sEngine = createIrrKlangDevice();
 
+	sync = false;
+
 	current = 0;
 
 	if (!mEngine) {
@@ -55,46 +57,77 @@ Sound::~Sound()
 
 void Sound::loadSounds(int x)
 {
-	string group = "";
+	string type = "";
 	int min = 0;
 	int max = 0;
 
 	// Choose which set of sounds to load
 	if (x == 0) {
-		group = "media/music/";
+		type = ".mp3";
 		min = 0;
 		max = 20;
+		sync = false;
+	}
+	else if (x == 1) {
+		type = ".wav";
+		min = 20;
+		max = 32;
+		sync = true;
 	}
 
 	// Load the sound set
 	for (int i = min; i < max; i++) {
-		string str = group + to_string(i) + ".mp3";
+		string str = "media/music/" + to_string(i) + type;
 
 		char * cstr = new char[str.length() + 1];
 		std::strcpy(cstr, str.c_str());
 		const ik_c8 * filename = cstr;
 
-		sources.push_back(mEngine->addSoundSourceFromFile(filename));
-	}
+		if (sync) {
+			ISound* snd = mEngine->play2D(filename, true, true, true); // play sound, start paused
+			if (snd) snd->setVolume(0.0f); // set volume to 0
+			music.push_back(snd);
+		}
+		else {
+			sources.push_back(mEngine->addSoundSourceFromFile(filename));
+		}
 
+	}
 }
 
 
 void Sound::play()
 {
-	if (current < sources.size()) {
+
+	if (sync && (unsigned)current < music.size()) {
+		cout << "Playing sound " << current << endl;
+		sEngine->play2D(grow);
+		music[current]->setVolume(1.0f);
+		mEngine->setAllSoundsPaused(false);
+		current++;
+	}
+	else if (!sync && (unsigned)current < sources.size()) {
 		cout << "Playing sound " << current << endl;
 		sEngine->play2D(grow);
 		music.push_back(mEngine->play2D(sources[current], true, false, true)); // play sound
 		current++;
 	}
 	else cout << "No sound to play" << endl;
+
 }
 
 
 void Sound::stop()
 {
-	if (current > 0) {
+
+	if (sync && current > 0) {
+		current--;
+		cout << "Stopping sound " << current << endl;
+		sEngine->play2D(grow);
+		sEngine->play2D(drop);
+		music[current]->setVolume(0.0f);
+	}
+	else if (!sync && current > 0) {
 		current--;
 		cout << "Stopping sound " << current << endl;
 		sEngine->play2D(grow);
@@ -103,6 +136,7 @@ void Sound::stop()
 		music.pop_back();
 	}
 	else cout << "No sound to stop" << endl;
+
 }
 
 
@@ -112,6 +146,18 @@ void Sound::stopAll()
 	cout << "Stopping all sounds" << endl;
 	sEngine->play2D(grow);
 	sEngine->play2D(drop);
-	mEngine->stopAllSounds();
-	music.erase(music.begin(), music.end());
+
+	if (sync) {
+		mEngine->setAllSoundsPaused(true);
+
+		for (unsigned int i = 0; i < music.size(); i++) {
+			music[i]->setVolume(0.0f);
+			music[i]->setPlayPosition(0);
+		}
+	}
+	else {
+		mEngine->stopAllSounds();
+		music.erase(music.begin(), music.end());
+	}
+
 }
