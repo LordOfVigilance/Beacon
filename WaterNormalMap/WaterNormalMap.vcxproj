@@ -92,6 +92,9 @@
   <ItemGroup>
     <None Include="button.frag" />
     <None Include="button.vert" />
+    <None Include="causticsPly.frag" />
+    <None Include="causticsPly.geom" />
+    <None Include="causticsPly.vert" />
     <None Include="plyColor.frag" />
     <None Include="plyColor.geom" />
     <None Include="plyColor.vert" />

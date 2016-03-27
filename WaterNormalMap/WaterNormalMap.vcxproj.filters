@@ -113,6 +113,15 @@
     <None Include="plyColor.frag">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="causticsPly.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="causticsPly.geom">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="causticsPly.frag">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="simplePass.vert">

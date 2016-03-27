@@ -53,6 +53,9 @@ struct {
 	glm::vec3 translation;
 } camera;
 
+const float ROTATIONSPEED = 0.015f;
+const float MOVESPEED = 2.0f;
+
 void checkForHover(double, double);
 
 std::vector<DreamClickable*> buttonList;
@@ -108,6 +111,7 @@ int main(void) {
 
 	GLuint simpleProgram = createProgram("simplePass.vert", NULL, NULL, NULL, "simplePass.frag");
 	GLuint rainProgram = createProgram("rain.vert", "rain.geom", NULL, NULL, "rain.frag");
+	GLuint causticsProgram = createProgram("causticsPly.vert", "causticsPly.geom", NULL, NULL, "causticsPly.frag");
 	GLuint plyColorProgram = createProgram("plyColor.vert", "plyColor.geom", NULL, NULL, "plyColor.frag");
 	GLuint waveProgram = createProgram("wave.vert", "wave.geom", NULL, NULL, "wave.frag");
 	GLuint buttonProgram = createProgram("button.vert", NULL, NULL, NULL, "button.frag");
@@ -128,6 +132,14 @@ int main(void) {
 	glGenTextures(1, &FBcolorDownSampled);
 	glBindTexture(GL_TEXTURE_2D, FBcolorDownSampled);
 	glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB8, 1280, 720);
+	
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	float borderColor[] = { 1.0f, 0.0f, 1.0f, 1.0f };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, FBcolorDownSampled, 0);
 
@@ -243,6 +255,17 @@ int main(void) {
 	GLuint waterTexture = createRTexture("Textures/Water.pbm");
 	GLuint waterNormalMap = createRGBTexture("Textures/Water_NRM.pbm");
 	GLuint fiberTexture = createRTexture("Textures/colorMap.pbm");
+	
+	GLuint worldDepthMap = createRTexture("Textures/worldDepthFull.pbm");
+	GLuint worldDepthMapFoam = createRTexture("Textures/worldDepthFoam.pbm");
+	GLuint waterFoam = createRTexture("Textures/foamDark.pbm");
+	GLuint waterCaustic[30];
+	for(int i=0; i<30; i++) {
+		GLchar textureFileName[100];
+		sprintf(textureFileName, "Textures/causticsAnimation/lessblur30/CausticsRender_%03d.pbm", i + 1);
+
+		waterCaustic[i] = createRTexture(textureFileName);
+	}
 
 	Model land("Models/Land.obj");
 	Model lighthouse("Models/Lighthouse.obj");	
@@ -253,7 +276,7 @@ int main(void) {
 	
 	Model plyPlane("Models/plane.ply", PLYMALLOC);
 	Model plyCube("Models/cube.ply", PLYMALLOC);
-	Model plyWorld("Models/World.ply", PLYMALLOC);
+	Model plyWorld("Models/World8.ply", PLYMALLOC);
 	
 	//Model cube("Models/cube.dae", COLLADAE);
 	//Model land("Models/Land.dae", COLLADAE);
@@ -273,12 +296,12 @@ int main(void) {
 	glm::vec3 up(0.0, -1.0, 0.0);
 	glm::mat4 viewMatrix = glm::lookAt(eye, center, up);
 
-	glm::vec3 eyeReflection(0.0, -2.5, 3.0);
+	glm::vec3 eyeReflection(0.0, -2.5, 1.0);
 	glm::vec3 centerReflection(0.0, -2.5, 0.0);
 	glm::vec3 upReflection(0.0, 1.0, 0.0);
 	glm::mat4 reflectionViewMatrix = glm::scale(glm::lookAt(eyeReflection, centerReflection, upReflection), glm::vec3(-1.0, 1.0, 1.0));
 	
-	glm::mat4 perspectiveMatrix = glm::perspective(30.0f, 16.0f/9.0f, 1.0f, 500.0f);
+	glm::mat4 perspectiveMatrix = glm::perspective(30.0f, 16.0f/9.0f, 0.1f, 3000.0f);
 
 	glm::mat4 modelMatrixLight(1.0f);
 	glm::mat4 modelMatrixWater(1.0f);
@@ -303,6 +326,7 @@ int main(void) {
 	glm::vec3 reflectionColor(0.22f, 0.3f, 0.36f);
 	glm::vec3 specularColor(0.68f, 0.33f, 0.11f);
 	glm::vec3 diffuseColor(0.25f, 0.32f, 0.43f);
+	glm::vec3 skyColor(0.78f, 0.91f, 1.0f);
 
 	GLfloat var1 = 1.4f;
 	GLfloat var2 = 2.4f;
@@ -333,6 +357,7 @@ int main(void) {
 	guiContainer->addComponent(&reflectionColor[0], 3, 0.0f, 1.0f);
 	guiContainer->addComponent(&specularColor[0], 3, 0.0f, 1.0f);
 	guiContainer->addComponent(&diffuseColor[0], 3, 0.0f, 1.0f);
+	guiContainer->addComponent(&skyColor[0], 3, 0.0f, 1.0f, shadowSliderColor);
 	guiContainer->addComponent(&var1, 0.0f, 10.0f);
 	guiContainer->addComponent(&var2, 0.0f, 120.0f);
 	guiContainer->addComponent(&var3, 0.0f, 675.0f);
@@ -348,14 +373,20 @@ int main(void) {
 	//guiContainer->addComponent(&modelMatrixLight[3][2], -1000.0f, 1000.0f);
 	guiContainer->addComponent(&textureSelect, 0.0f, 3.0f);
 	guiContainer->addComponent(&dmapDepth, -10.0f, 10.0f);
+	
+	float startTime = (float) glfwGetTime();
 
-	glm::vec4 clearColorValue = glm::vec4(1.0f, 1.0f, 1.0f, 1.0);
+	glm::vec4 clearColorValue = glm::vec4(skyColor.r, skyColor.g, skyColor.b, 1.0);
 	float* clearDepthValue = new float(1.0f);
+	int animationFrame = 0;
+	float lastFrameTime, time;
+	lastFrameTime = time = startTime;
 
 	while(!glfwWindowShouldClose(window) && !terminated) {
+		clearColorValue = glm::vec4(skyColor.r, skyColor.g, skyColor.b, 1.0);
 		glfwPollEvents();
 
-		float time = (float) glfwGetTime();
+		time = (float) glfwGetTime();
 		texOffset.x = -time/20.0f;
 		texOffset.y = time/40.0f;
 
@@ -399,7 +430,7 @@ int main(void) {
 		//Lighthouse
 		lighthouse.setVP(perspectiveMatrix*reflectionViewMatrix);
 		glUniformMatrix4fv(1, 1, GL_FALSE, &lighthouse.getMatrix()[0][0]);
-		//lighthouse.render();
+		lighthouse.render();
 		
 		//Monkey
 		monkey.setVP(perspectiveMatrix*reflectionViewMatrix);
@@ -409,12 +440,17 @@ int main(void) {
 		//Ship
 		ship.setVP(perspectiveMatrix*reflectionViewMatrix);
 		glUniformMatrix4fv(1, 1, GL_FALSE, &ship.getMatrix()[0][0]);
-		//ship.render();
+		ship.render();
 
 		//Room
 		room.setVP(perspectiveMatrix*reflectionViewMatrix);
 		glUniformMatrix4fv(1, 1, GL_FALSE, &room.getMatrix()[0][0]);
-		room.render();
+		//room.render();
+		
+		//PLY World
+		plyWorld.setVP(perspectiveMatrix*reflectionViewMatrix);
+		glUniformMatrix4fv(1, 1, GL_FALSE, &plyWorld.getMatrix()[0][0]);
+		plyWorld.renderPLY();
 
 		glDisable(GL_CLIP_DISTANCE0);
 
@@ -426,10 +462,10 @@ int main(void) {
 		glClearBufferfv(GL_DEPTH, 0, clearDepthValue);
 		glUseProgram(shadowProgram);
 
-		glm::vec3 lightInvDir = glm::vec3(shadowPos[0], shadowPos[1], shadowPos[2]);
+		glm::vec3 lightInvDir = glm::vec3(lightPos[0], lightPos[1], lightPos[2]);
 
 		//Compute the MVP matrix from the light's point of view
-		glm::mat4 depthProjectionMatrix = glm::ortho<float>(-10, 10, -10, 10, -10, 20);
+		glm::mat4 depthProjectionMatrix = glm::ortho<float>(-100, 100, -100, 100, -100, 200);
 		glm::mat4 depthViewMatrix = glm::lookAt(lightInvDir, glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 		glm::mat4 depthVP = depthProjectionMatrix * depthViewMatrix;
 
@@ -449,15 +485,19 @@ int main(void) {
 		
 		//Monkey
 		monkey.setVP(depthVP);
-		monkey.render();
+		//monkey.render();
 		
 		//Ship
 		ship.setVP(depthVP);
-		//ship.render();
+		ship.render();
 		
 		//Room
 		room.setVP(depthVP);
-		room.render();
+		//room.render();
+		
+		//PLY World
+		plyWorld.setVP(depthVP);
+		plyWorld.renderPLY();
 		
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -500,7 +540,7 @@ int main(void) {
 		lighthouse.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*lighthouse.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		//lighthouse.render();
+		lighthouse.render();
 		
 		//Monkey
 		monkey.setVP(perspectiveMatrix*viewMatrix);
@@ -512,7 +552,7 @@ int main(void) {
 		ship.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*ship.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		//ship.render();
+		ship.render();
 
 		//Room
 		room.setVP(perspectiveMatrix*viewMatrix);
@@ -520,7 +560,7 @@ int main(void) {
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
 		//room.render();
 
-
+		/////Ply Files
 
 		glUseProgram(plyColorProgram);
 		glUniform3fv(5, 1, &mvpLightPosCorrect[0]);
@@ -547,13 +587,38 @@ int main(void) {
 		glUniformMatrix4fv(8, 1, GL_FALSE, &plyPlane.getMatrix()[0][0]);
 		plyPlane.renderPLY();
 		
+
+		glUseProgram(causticsProgram);
+		glUniform3fv(5, 1, &mvpLightPosCorrect[0]);
+		glUniform3fv(6, 1, &lightColor[0]);
+		glUniform1f(7, lightPower);
+		
+		glUniformMatrix4fv(9, 1, GL_FALSE, &viewMatrix[0][0]);
+		glUniform1f(10, bias);
+		
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+		
+		if((time - lastFrameTime) > 1.0f/15.0f) {
+			animationFrame++;
+			lastFrameTime = time;
+		}
+
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, waterCaustic[animationFrame%30]);
 		
 		//PLY World
 		plyWorld.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*plyWorld.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
 		glUniformMatrix4fv(8, 1, GL_FALSE, &plyWorld.getMatrix()[0][0]);
+		glUniform2fv(11, 1, &texOffset[0]);
+		glUniform3fv(12, 1, &lightPos[0]);
 		plyWorld.renderPLY();
+		
+		/////Ply Files
+
+
 
 		//Wave
 		glUseProgram(waveProgram);
@@ -600,6 +665,15 @@ int main(void) {
 		
 		glActiveTexture(GL_TEXTURE4);
 		glBindTexture(GL_TEXTURE_2D, waterNormalMap);
+		
+		glActiveTexture(GL_TEXTURE5);
+		glBindTexture(GL_TEXTURE_2D, worldDepthMap);
+
+		glActiveTexture(GL_TEXTURE6);
+		glBindTexture(GL_TEXTURE_2D, waterFoam);
+		
+		glActiveTexture(GL_TEXTURE7);
+		glBindTexture(GL_TEXTURE_2D, worldDepthMapFoam);
 
 		glBindVertexArray(vao);
 
@@ -627,7 +701,7 @@ int main(void) {
 		glUniform1f(uniforms.var5, var5);
 		glUniform1f(uniforms.var6, var6);
 
-		//glDrawArraysInstanced(GL_PATCHES, 0, 4, 256*256);
+		glDrawArraysInstanced(GL_PATCHES, 0, 4, 64*64);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		
 		glDepthMask(GL_TRUE);
@@ -655,7 +729,7 @@ int main(void) {
 		//glUseProgram(texProgram);
 		
 		//glActiveTexture(GL_TEXTURE0);
-		//glBindTexture(GL_TEXTURE_2D, depthMap);
+		//glBindTexture(GL_TEXTURE_2D, worldDepthMap);
 
 		//glDrawArrays(GL_QUADS, 0, 4);
 
@@ -684,7 +758,8 @@ int main(void) {
 ImagePBM readNetpbmFile(GLchar * ppmFileName) {
 	ImagePBM imageStruct;
 
-	std::ifstream image(ppmFileName);
+	std::ifstream image;
+	image.open(ppmFileName, std::ios::binary | std::ios::in);
 
 	if(!image.is_open()) {
 		fprintf(stderr, "Image could not be opened");
@@ -709,13 +784,15 @@ ImagePBM readNetpbmFile(GLchar * ppmFileName) {
 	else if(netpbmFileType.compare("P6") == 0)
 		imageStruct.elements = 3;
 
-	imageStruct.data = new GLubyte[imageStruct.width*imageStruct.height*imageStruct.elements];
+	imageStruct.data = reinterpret_cast<GLubyte*>(malloc(sizeof(GLubyte)*imageStruct.width*imageStruct.height*imageStruct.elements));
 
 	line = "";
 	getline(image, line);
 
-	for(int i=0; i<imageStruct.width*imageStruct.height*imageStruct.elements; i++)
-		imageStruct.data[i] = (GLubyte)image.get();
+	//Read Elements
+	image.read(reinterpret_cast<char*>(imageStruct.data), sizeof(GLubyte)*imageStruct.width*imageStruct.height*imageStruct.elements);
+
+	image.close();
 
 	return imageStruct;
 }
@@ -772,7 +849,7 @@ GLFWwindow* openGLInit(GLint width, GLint height, GLchar* windowTitle) {
 	glewInit();
 
 	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS);
+	glDepthFunc(GL_LEQUAL);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -783,37 +860,40 @@ GLFWwindow* openGLInit(GLint width, GLint height, GLchar* windowTitle) {
 
 	//glEnable(GL_CULL_FACE);
 	//glCullFace(GL_BACK);
+	
+	glEnable(GL_DEPTH_CLAMP);
 
 	return window;
 }
 
 void keyCallback (GLFWwindow * window, int key, int scancode, int action, int mods)
 {
+
 	if (action == GLFW_PRESS)
 	{
 		if (key == GLFW_KEY_E || key == GLFW_KEY_RIGHT)
-			camera.rotation.x -= 0.02f;
+			camera.rotation.x -= ROTATIONSPEED;
 
 		else if (key == GLFW_KEY_Q || key == GLFW_KEY_LEFT)
-			camera.rotation.x += 0.02f;
+			camera.rotation.x += ROTATIONSPEED;
 
 		else if (key == GLFW_KEY_W)
-			camera.translation.z += 0.2f;
+			camera.translation.z += MOVESPEED;
 		
 		else if (key == GLFW_KEY_A)
-			camera.translation.x += 0.2f;
+			camera.translation.x += MOVESPEED;
 		
 		else if (key == GLFW_KEY_S)
-			camera.translation.z -= 0.2f;
+			camera.translation.z -= MOVESPEED;
 		
 		else if (key == GLFW_KEY_D)
-			camera.translation.x -= 0.2f;
+			camera.translation.x -= MOVESPEED;
 		
 		else if (key == GLFW_KEY_X)
-			camera.translation.y -= 0.2f;
+			camera.translation.y -= MOVESPEED;
 		
 		else if (key == GLFW_KEY_Z)
-			camera.translation.y += 0.2f;
+			camera.translation.y += MOVESPEED;
 
 		else if (key == GLFW_KEY_V)
 			texOffset.x += 0.1f;

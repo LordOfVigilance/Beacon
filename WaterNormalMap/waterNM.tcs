@@ -6,10 +6,14 @@ uniform mat4 mvp;
 
 in VS_OUT {
 	vec2 textureCoord;
+	vec2 foamTextureCoord;
+	vec2 foamTextureCoord2;
 } tcsIn[];
 
 out TCS_OUT {
 	vec2 textureCoord;
+	vec2 foamTextureCoord;
+	vec2 foamTextureCoord2;
 } tcsOut[];
 
 void main(void) {
@@ -22,25 +26,21 @@ void main(void) {
 		p1 /= p1.w;
 		p2 /= p2.w;
 		p3 /= p3.w;
-		if(p0.z <= 0.0 || p1.z <= 0.0 || p2.z <= 0.0 || p3.z <= 0.0) {
-			gl_TessLevelOuter[0] = 0.0;
-			gl_TessLevelOuter[1] = 0.0;
-			gl_TessLevelOuter[2] = 0.0;
-			gl_TessLevelOuter[3] = 0.0;
-		} else {
-			float l0 = length(p2.xy - p0.xy)*16.0 + 1.0;
-			float l1 = length(p3.xy - p2.xy)*16.0 + 1.0;
-			float l2 = length(p3.xy - p1.xy)*16.0 + 1.0;
-			float l3 = length(p1.xy - p0.xy)*16.0 + 1.0;
+
+		float l0 = length(p2.xy - p0.xy)*32.0 + 1.0;
+		float l1 = length(p3.xy - p2.xy)*32.0 + 1.0;
+		float l2 = length(p3.xy - p1.xy)*32.0 + 1.0;
+		float l3 = length(p1.xy - p0.xy)*32.0 + 1.0;
 			
-			gl_TessLevelOuter[0] = l0;
-			gl_TessLevelOuter[1] = l1;
-			gl_TessLevelOuter[2] = l2;
-			gl_TessLevelOuter[3] = l3;
-			gl_TessLevelInner[0] = min(l1, l3);
-			gl_TessLevelInner[1] = min(l0, l2);
-		}
+		gl_TessLevelOuter[0] = l0;
+		gl_TessLevelOuter[1] = l1;
+		gl_TessLevelOuter[2] = l2;
+		gl_TessLevelOuter[3] = l3;
+		gl_TessLevelInner[0] = min(l1, l3);
+		gl_TessLevelInner[1] = min(l0, l2);
 	}
 	gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
 	tcsOut[gl_InvocationID].textureCoord = tcsIn[gl_InvocationID].textureCoord;
+	tcsOut[gl_InvocationID].foamTextureCoord = tcsIn[gl_InvocationID].foamTextureCoord;
+	tcsOut[gl_InvocationID].foamTextureCoord2 = tcsIn[gl_InvocationID].foamTextureCoord2;
 }

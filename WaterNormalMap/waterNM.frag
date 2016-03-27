@@ -7,6 +7,9 @@ layout (binding = 1) uniform sampler2D texReflectionColor;
 layout (binding = 2) uniform sampler2D zBufferTexture;
 layout (binding = 3) uniform sampler2D texReflectionDepth;
 layout (binding = 4) uniform sampler2D normalMap;
+layout (binding = 5) uniform sampler2D worldDepthMap;
+layout (binding = 6) uniform sampler2D foamTexture;
+layout (binding = 7) uniform sampler2D worldDepthMapFoam;
 
 uniform float dmap_depth;
 uniform vec3 lightPos;
@@ -25,10 +28,17 @@ uniform float var4;
 uniform float var5;
 uniform float var6;
 
+uniform int screenWidth = 1280;
+uniform int screenHeight = 720;
+uniform vec3 skyColor = vec3(0.78, 0.91, 1.0);
+
 in GS_OUT {
 	vec2 textureCoord;
+	vec2 foamTextureCoord;
+	vec2 foamTextureCoord2;
 	vec3 normal;
 	vec3 position;
+	vec4 worldPosition;
 } fsIn;
 
 void main(void) {
@@ -38,7 +48,6 @@ void main(void) {
 	vec3 R = normalize(reflect(light_vector, fsIn.normal));
 	float cos = clamp(dot(R, eye_vector), 0, 1);
 	vec3 reflectionColorComp = clamp(reflectionColor * 20 * pow(cos, 1.0)/(distance*distance), 0, 1);
-	
 	
 	vec3 normal = normalize(texture(normalMap, fsIn.textureCoord).rgb*2.0 - vec3(1.0));
 
@@ -78,9 +87,9 @@ void main(void) {
 	ivec2 reflectionTexCoord = ivec2(gl_FragCoord.xy + reflectedDirection.xy*reflectionDistance);
 	float depthRatio = 1 - (abs(dmap_depth)/9 + 0.111);
 	vec3 trueReflectionColor = clamp(depthRatio*texelFetch(texReflectionColor,  reflectionTexCoord, 0).rgb, 0.0, 1.0);
-	
-	if(reflectionDepth == 1.0)
-		trueReflectionColor = vec3(1.0, 1.0, 1.0);
+
+	if (reflectionTexCoord.x < 0 || reflectionTexCoord.x > screenWidth || reflectionTexCoord.y < 0 || reflectionTexCoord.y > screenHeight)
+		trueReflectionColor = skyColor;
 	
 	// End of True Reflection
 
@@ -109,5 +118,20 @@ void main(void) {
 	float colorR = pow(texelFetch( texReflectionDepth, ivec2(gl_FragCoord.xy), 0).r, 20);
     vec3 reflectionColor = vec3(colorR, colorR, colorR);
 	
-	color = vec4(trueReflectionColor*(specularColorComp + reflectionColorComp + diffuseColorComp), zDifference*alphaComp);
+	float worldDepthValue = texture( worldDepthMap, vec2(fsIn.worldPosition.x/2560 + 0.5, fsIn.worldPosition.z/2560 + 0.5), 0).r;
+	float worldDepthFoamValue = texture( worldDepthMapFoam, vec2(fsIn.worldPosition.x/2560 + 0.5, fsIn.worldPosition.z/2560 + 0.5), 0).r;
+
+
+	float foamDmapDepth = abs(dmap_depth/10.0);
+
+	float foamR = texture( foamTexture, fsIn.foamTextureCoord*20 + 0.5, 0).r;
+	float foamAlpha = clamp(((1 - worldDepthFoamValue) - 0.52)*5, 0.0, 0.5);
+	vec4 foamColor = vec4(vec3(foamR*foamAlpha*0.5, foamR*foamAlpha*0.7, foamR*foamAlpha), foamR*foamAlpha*foamDmapDepth);
+
+	float foamR2 = texture( foamTexture, fsIn.foamTextureCoord2*20, 0).r;
+	vec4 foamColor2 = vec4(vec3(foamR2*foamAlpha*0.5, foamR2*foamAlpha*0.7, foamR2*foamAlpha), foamR2*foamAlpha*foamDmapDepth/2);
+
+	vec4 waterColor = vec4(trueReflectionColor*(1 - abs(dmap_depth/10)) + (specularColorComp + reflectionColorComp*(1 - foamAlpha*2) + diffuseColorComp)*(abs(dmap_depth/10)*0.8 + 0.2), zDifference*alphaComp*worldDepthValue);
+
+	color = waterColor + foamColor + foamColor2;
 }

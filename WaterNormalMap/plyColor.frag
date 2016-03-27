@@ -4,13 +4,18 @@ layout (binding = 0) uniform sampler2D shadowMap;
 
 layout (location = 10) uniform float bias;
 
+uniform vec4 fogColor = vec4(0.7, 0.8, 0.9, 0.0);
+
 in FRAGMENT {
 	vec4 color;
 	vec4 shadowCoord;
 	float cos;
+	vec3 positionWorldSpace;
+	vec3 eyeDirectionCameraSpace;
+	vec3 eye_coord;
 } fragment;
 
-out vec4 colour;
+out vec4 color;
 
 void main () {
 	float visibility = 1.0;
@@ -23,5 +28,15 @@ void main () {
 		visibility = 0.5;
 	}
 
-	colour = vec4(visibility*fragment.color.rgb, fragment.color.a);
+	color = vec4(visibility*fragment.color.rgb, fragment.color.a);
+	
+    //float z = length(fragment.eye_coord)/100;
+
+    //float de = 0.025 * smoothstep(0.0, 6.0, 10.0 - fragment.positionWorldSpace.y);
+    //float di = 0.045 * smoothstep(0.0, 40.0, 20.0 - fragment.positionWorldSpace.y);
+
+    //float extinction   = exp(-z * de);
+    //float inscattering = exp(-z * di);
+
+	//color = color;//*extinction + fogColor*(1.0 - inscattering);
 }
