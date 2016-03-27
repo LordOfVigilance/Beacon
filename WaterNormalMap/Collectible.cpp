@@ -41,7 +41,5 @@ void Collectible::collide()
 	if (visible)
 	{
 		visible = false;
-		//Call Music Player Here
-
 	}
 }

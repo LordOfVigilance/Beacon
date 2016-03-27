@@ -86,6 +86,7 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 void printFunction();
 bool locked = true;
 bool lockLock = false;
+bool muteLock = false;
 Sound sounds = Sound();
 glm::vec3 currentDirection = glm::vec3(0.0f,0.0f,0.0f);
 const float PI = 3.14159265f;
@@ -1208,17 +1209,18 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
 		player->rotatePlayer(+rotateSpeed * deltaTime);
 	}
-	if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS)
+	if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS)
 	{
-		sounds.play();
+		if (!muteLock)
+		{
+			muteLock = true;
+			//Mute Sounds Here
+		}
+		
 	}
-	if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
+	if (glfwGetKey(window, GLFW_KEY_M) == GLFW_RELEASE)
 	{
-		sounds.stop();
-	}
-	if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
-	{
-		sounds.stopAll();
+		muteLock = false;
 	}
 	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
 		if (!lockLock)
