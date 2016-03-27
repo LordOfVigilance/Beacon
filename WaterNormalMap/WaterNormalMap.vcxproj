@@ -81,6 +81,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Collectible.cpp" />
     <ClCompile Include="DreamButton.cpp" />
     <ClCompile Include="DreamClickable.cpp" />
     <ClCompile Include="DreamComponent.cpp" />
@@ -90,6 +91,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="Player.cpp" />
+    <ClCompile Include="Sound.cpp" />
     <ClCompile Include="tinyxml2.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -121,6 +123,7 @@
     <Text Include="simplePass.vert" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Collectible.h" />
     <ClInclude Include="DreamButton.h" />
     <ClInclude Include="DreamClickable.h" />
     <ClInclude Include="DreamComponent.h" />
@@ -129,7 +132,11 @@
     <ClInclude Include="DreamSlider.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="Player.h" />
+    <ClInclude Include="Sound.h" />
     <ClInclude Include="tinyxml2.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="irrKlang.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -25,6 +25,8 @@
 
 #include "Model.h"
 #include "Player.h"
+#include "Collectible.h"
+#include "Sound.h"
 
 struct {
 	GLint mvp;
@@ -84,6 +86,7 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 void printFunction();
 bool locked = true;
 bool lockLock = false;
+Sound sounds = Sound();
 glm::vec3 currentDirection = glm::vec3(0.0f,0.0f,0.0f);
 const float PI = 3.14159265f;
 bool terminated = false;
@@ -98,7 +101,7 @@ int main(void) {
 
 	GLuint program = createProgram("waterNM.vert", "waterNM.geom", "waterNM.tcs", "waterNM.tes", "waterNM.frag");
 
-
+	sounds.loadSounds(0);
 
 	int width;
 	int height;
@@ -1204,6 +1207,18 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	// Strafe left
 	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
 		player->rotatePlayer(+rotateSpeed * deltaTime);
+	}
+	if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS)
+	{
+		sounds.play();
+	}
+	if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
+	{
+		sounds.stop();
+	}
+	if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
+	{
+		sounds.stopAll();
 	}
 	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
 		if (!lockLock)
