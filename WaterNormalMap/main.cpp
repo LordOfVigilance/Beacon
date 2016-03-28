@@ -298,7 +298,7 @@ int main(void) {
 
 
 
-	Player player = Player(glm::vec3(0, -0.1f, 0), glm::vec2(3.14f, 0.0f), Model("Models/wave.obj"));
+	Player player = Player(glm::vec3(0, -0.1f, 0), glm::vec2(3.14f, 0.0f), Model("Models/wave.obj"), &sounds);
 
 	camera.translation = player.getPosition() + glm::vec3(0.0f, 2.0f, 4.0f);
 
@@ -1119,11 +1119,11 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	static float speed = 7.0f; // 3 units / second
 	static float rotateSpeed = 2.00f;
 	static float mouseSpeed = 0.005f;
-	player->setSpeed(7.0f);
+	player->setSpeed(1.0f);
 	// Compute time difference between current and last frame
 	double currentTime = glfwGetTime();
 	float deltaTime = float(currentTime - lastTime);
-
+	player->timeUpdate(deltaTime);
 	// Get mouse position
 	double xpos, ypos;
 	glfwGetCursorPos(window, &xpos, &ypos);
@@ -1194,12 +1194,17 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	}
 	//Player Controls
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-		player->setSpeed(10.0f);
-
+		player->setSpeed(1.4f);
+	}
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_RELEASE) {
+		player->resetSpeed(1.4f);
 	}
 	// Move backward
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-		player->setSpeed(5.0f);
+		player->setSpeed(0.7f);
+	}
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_RELEASE) {
+		player->resetSpeed(0.7f);
 	}
 	// Strafe right
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
@@ -1210,7 +1215,7 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 		player->rotatePlayer(+rotateSpeed * deltaTime);
 	}
 	if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) {
-		sounds.play();
+		player->scalePlayerUp();
 	}
 	if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) {
 		sounds.stop();
