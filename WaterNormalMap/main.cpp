@@ -318,7 +318,7 @@ int main(void) {
 
 	camera.rotation = glm::vec2();
 	
-    Player player = Player(glm::vec3(0, -0.1f, 0), glm::vec2(3.14f, 0.0f), Model("Models/wave.ply", PLYMALLOC), &sounds);
+    Player player = Player(glm::vec3(0, -0.1f, 0), glm::vec2(0.0f, 0.0f), Model("Models/wave.ply", PLYMALLOC), &sounds);
 	camera.translation = player.getPosition() + glm::vec3(0.0f, 2.0f, 4.0f);
     
     
@@ -757,11 +757,12 @@ int main(void) {
 		glEnable(GL_CULL_FACE);
 		glCullFace(GL_BACK);
 		
-		player.getModel().setVP(perspectiveMatrix*viewMatrix);
-		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*player.getModel().getMatrix();
+		Model hold = player.getModel();
+		hold.setVP(perspectiveMatrix*viewMatrix);
+		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*hold.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		glUniformMatrix4fv(8, 1, GL_FALSE, &player.getModel().getMatrix()[0][0]);
-		player.getModel().renderPLY();
+		glUniformMatrix4fv(8, 1, GL_FALSE, &hold.getMatrix()[0][0]);
+		hold.renderPLY();
 
       	glDisable(GL_CULL_FACE);
 
@@ -1430,7 +1431,7 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	}
 
 	player->translate(player->getDirection() * deltaTime * player->getSpeed());
-	camera.translation = (player->getPosition() + ((-currentDirection * 4.0f))) + glm::vec3(0.0f, 3.0f, 0.0f);
+	camera.translation = (player->getPosition() + ((-currentDirection * 6.0f))) + glm::vec3(0.0f, 3.0f, 0.0f);
 
 	float FoV = initialFoV;// - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this. It's a bit too complicated for this beginner's tutorial, so it's disabled instead.
 
