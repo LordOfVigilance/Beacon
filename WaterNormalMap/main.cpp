@@ -305,9 +305,6 @@ int main(void) {
 
 
 
-
-
-
 	glm::vec4 lightPos(20.0, -120.0, 580.0, 1.0);
 	glm::vec3 lightColor(0.6, 0.6, 0.9);
 	GLfloat lightPower(1.0);
@@ -582,8 +579,6 @@ int main(void) {
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*room.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
 		room.render();
-
-
 
 		glUseProgram(plyColorProgram);
 		glUniform3fv(5, 1, &mvpLightPosCorrect[0]);
@@ -1104,7 +1099,6 @@ GLuint createShaderFromCode (GLenum shaderType, std::string code)
 
 void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Player* player)
 {
-
 	glm::mat4 ViewMatrix = *cameraView;
 
 	// glfwGetTime is called only once, the first time this function is called
@@ -1115,7 +1109,6 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	static float verticalAngle = 0.0f;
 	// Initial Field of View
 	static float initialFoV = 45.0f;
-
 	static float speed = 7.0f; // 3 units / second
 	static float rotateSpeed = 2.00f;
 	static float mouseSpeed = 0.005f;
@@ -1142,7 +1135,6 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	}
 	else
 	{
-		
 		if (player->getDirection().z < 0.0f && player->getDirection().x < 0.0f)
 		{
 			horizontalAngle = -asin(player->getDirection().x / cos(verticalAngle));
@@ -1154,10 +1146,7 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 		else
 		{
 			horizontalAngle = asin(player->getDirection().x / cos(verticalAngle)) + PI;
-		}
-		
-		
-		
+		}	
 	}
 						   // Direction : Spherical coordinates to Cartesian coordinates conversion
 	glm::vec3 direction(
@@ -1166,9 +1155,6 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 		cos(verticalAngle) * cos(horizontalAngle)
 		);
 	
-	
-
-
 	// Right vector
 	glm::vec3 right = glm::vec3(sin(horizontalAngle - PI / 2.0f), 0, cos(horizontalAngle - PI / 2.0f));
 
@@ -1272,19 +1258,12 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 		else
 		{
 			currentDirection = direction;
-
 		}
-		
-		
 	}
 	else
 	{
 		currentDirection = direction;
-
 	}
-
-	
-	
 
 	player->translate(player->getDirection() * deltaTime * player->getSpeed());
 	camera.translation = (player->getPosition() + ((-currentDirection * 4.0f))) + glm::vec3(0.0f, 3.0f, 0.0f);
@@ -1299,7 +1278,6 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 		);
 
 	*cameraView = ViewMatrix;
-
 
 	// For the next frame, the "last time" will be "now"
 	lastTime = currentTime;

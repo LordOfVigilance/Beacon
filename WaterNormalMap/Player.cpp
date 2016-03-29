@@ -86,14 +86,14 @@ void Player::rotatePlayer(float radians)
 void Player::scalePlayerUp()
 {
 	float lastScale = scale;
-	scale += 0.2f;
+	scale += 0.05f;
 	if (scale > maxSize)
 	{
 		scale = maxSize;
 	}
 	else
 	{
-		
+		time = 5.0f;
 		sounds->play();
 		speed += 0.5f;
 	}
@@ -106,7 +106,7 @@ void Player::scalePlayerUp()
 void Player::scalePlayerDown()
 {
 	float lastScale = scale;
-	scale -= 0.2f;
+	scale -= 0.05f;
 	if (scale < minSize)
 	{
 		scale = minSize;
