@@ -122,6 +122,15 @@
     <None Include="causticsPly.frag">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="plyUV.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="plyUV.geom">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="plyUV.frag">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="simplePass.vert">

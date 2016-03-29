@@ -4,42 +4,67 @@ layout (triangles) in;
 
 layout (triangle_strip, max_vertices = 3) out;
 
-layout (location = 5) uniform vec3 lightPos;
+layout (location = 5) uniform vec3 lightPositionWorldSpace;
 layout (location = 6) uniform vec3 lightColor;
 layout (location = 7) uniform float lightPower;
 
-in vec4[] shadowCoord;
+in VERTEX {
+	vec4 shadowCoord;
+	vec3 color;
+	vec3 positionWorldSpace;
+	vec3 eyeDirectionCameraSpace;
+	vec3 lightDirectionCameraSpace;
+	vec3 normalCameraSpace;
+	vec3 eye_coord;
+	vec3 positionModelSpace;
+} vertex[];
 
 out FRAGMENT {
 	vec4 color;
 	vec4 shadowCoord;
 	float cos;
+	vec3 positionWorldSpace;
+	vec3 eyeDirectionCameraSpace;
+	vec3 lightDirectionCameraSpace;
+	vec3 normalCameraSpace;
+	vec3 eye_coord;
+	vec3 positionModelSpace;
 } fragment;
 
 void main (void) {
-	int i;
-
-	vec3 edge1 = gl_in[1].gl_Position.xyz - gl_in[0].gl_Position.xyz;
-	vec3 edge2 = gl_in[2].gl_Position.xyz - gl_in[0].gl_Position.xyz;
-
-	vec4 faceNormal = vec4(normalize(cross(edge2, edge1)), 1.0);
 	
-	vec3 lightVec = lightPos.xyz - gl_in[0].gl_Position.xyz;
-	float distance = length(lightVec);
-	vec3 lightDirection = normalize(lightVec);
-	float cos = clamp(dot(faceNormal.xyz, -lightDirection), 0, 1);
-	vec4 diffuseColor = clamp(vec4(vec3(0.3, 0.5, 0.6)*lightColor*lightPower*cos, 1.0), 0.0, 0.5);
+	// Material properties
+	vec3 materialDiffuseColor = vertex[0].color;
+	vec3 materialAmbientColor = vec3(0.8,0.8,0.8)*materialDiffuseColor;
+	vec3 materialSpecularColor = vec3(1.0, 1.0, 1.0);
+	
+	// Distance to the light
+	float distanceToLight = length(lightPositionWorldSpace - vertex[0].positionWorldSpace);
 
-	vec3 eyeVec = normalize(vec3(0.0, 0.0, 0.0) - gl_in[0].gl_Position.xyz);
-	vec3 reflectVec = normalize(reflect(lightVec.xyz, faceNormal.xyz));
-	float cosSpec = clamp(dot(eyeVec, reflectVec), 0, 1);
-	vec4 specColor = clamp(vec4(vec3(1.0, 1.0, 1.0)*20*pow(cosSpec, 10)/(distance), 1.0), 0, 1);
+	vec3 normal = normalize(vertex[0].normalCameraSpace);
+	vec3 lightDirection = normalize(vertex[0].lightDirectionCameraSpace);
+	float cosTheta = clamp(dot(normal, lightDirection), 0, 1);
 
+	vec3 eyeDirection = normalize(vertex[0].eyeDirectionCameraSpace);
+	vec3 reflectionDirection = reflect(-lightDirection, normal);
+	float cosAlpha = clamp( dot( eyeDirection, reflectionDirection), 0,1 );
+	
+	vec3 color = materialAmbientColor + materialDiffuseColor*lightColor*lightPower*cosTheta + materialSpecularColor*lightColor*0.7*pow(cosAlpha,1);
+	
+	int i;
 	for (i = 0; i < gl_in.length; i++) {
-		fragment.color = diffuseColor + specColor + vec4(vec3(0.4, 0.6, 0.4)*faceNormal.y*faceNormal.x, 1.0);
 		gl_Position = gl_in[i].gl_Position;
-		fragment.shadowCoord = shadowCoord[i];
-		fragment.cos = cos;
+
+		fragment.color = vec4(color, 1.0);
+		fragment.shadowCoord = vertex[i].shadowCoord;
+		fragment.cos = 1.0;
+		
+		fragment.positionWorldSpace = vertex[i].positionWorldSpace;
+		fragment.eyeDirectionCameraSpace = vertex[i].eyeDirectionCameraSpace;
+		fragment.lightDirectionCameraSpace = vertex[i].lightDirectionCameraSpace;
+		fragment.normalCameraSpace = vertex[i].normalCameraSpace;
+		fragment.eye_coord = vertex[i].eye_coord;
+		fragment.positionModelSpace = vertex[i].positionModelSpace;
 
 		EmitVertex();
 	}

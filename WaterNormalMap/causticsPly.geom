@@ -31,7 +31,7 @@ void main (void) {
 	
 	// Material properties
 	vec3 materialDiffuseColor = vertex[0].color;
-	vec3 materialAmbientColor = vec3(0.1,0.1,0.1)*materialDiffuseColor;
+	vec3 materialAmbientColor = vec3(0.8,0.8,0.8)*materialDiffuseColor;
 	vec3 materialSpecularColor = vec3(0.3,0.3,0.3);
 	
 	// Distance to the light

@@ -12,6 +12,8 @@ in FRAGMENT {
 	float cos;
 	vec3 positionWorldSpace;
 	vec3 eyeDirectionCameraSpace;
+	vec3 lightDirectionCameraSpace;
+	vec3 normalCameraSpace;
 	vec3 eye_coord;
 } fragment;
 
@@ -29,14 +31,4 @@ void main () {
 	}
 
 	color = vec4(visibility*fragment.color.rgb, fragment.color.a);
-	
-    //float z = length(fragment.eye_coord)/100;
-
-    //float de = 0.025 * smoothstep(0.0, 6.0, 10.0 - fragment.positionWorldSpace.y);
-    //float di = 0.045 * smoothstep(0.0, 40.0, 20.0 - fragment.positionWorldSpace.y);
-
-    //float extinction   = exp(-z * de);
-    //float inscattering = exp(-z * di);
-
-	//color = color;//*extinction + fogColor*(1.0 - inscattering);
 }

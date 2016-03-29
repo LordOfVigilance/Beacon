@@ -13,7 +13,8 @@ enum {
 	COLLADAE,
 	WAVEFORM,
 	PLY,
-	PLYMALLOC
+	PLYMALLOC,
+	PLYUVMALLOC
 };
 
 struct DaeGeom {
@@ -46,8 +47,9 @@ public:
 	void setVP(glm::mat4x4);
 	
 	static bool loadColladaeIndexed(const char*, DaeGeom*, DaeGeom*, DaeGeom*);
-	static bool loadPLYIndexed(const char*, std::vector<GLfloat>&, std::vector<GLfloat>&, std::vector<GLuint>&, std::vector<GLfloat>&);
-	static bool loadPLYIndexedMalloc(const char*, GLfloat**, GLfloat**, GLfloat**, GLuint**, int*, int*);
+	static bool loadPlyIndexed(const char*, std::vector<GLfloat>&, std::vector<GLfloat>&, std::vector<GLuint>&, std::vector<GLfloat>&);
+	static bool loadPlyIndexedMalloc(const char*, GLfloat**, GLfloat**, GLfloat**, GLuint**, int*, int*);
+	static bool loadPlyUVIndexedMalloc(const char*, GLfloat**, GLfloat**, GLfloat**, GLuint**, int*, int*);
 	static bool loadObjIndexed(const char *, std::vector<GLfloat>&, std::vector<GLfloat>&, std::vector<GLushort>&);
 
 private:	

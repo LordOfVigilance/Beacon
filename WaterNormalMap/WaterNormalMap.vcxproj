@@ -98,6 +98,9 @@
     <None Include="plyColor.frag" />
     <None Include="plyColor.geom" />
     <None Include="plyColor.vert" />
+    <None Include="plyUV.frag" />
+    <None Include="plyUV.geom" />
+    <None Include="plyUV.vert" />
     <None Include="rain.frag" />
     <None Include="rain.geom" />
     <None Include="rain.vert" />

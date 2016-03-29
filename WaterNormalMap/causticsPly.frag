@@ -15,6 +15,8 @@ in FRAGMENT {
 	float cos;
 	vec3 positionWorldSpace;
 	vec3 eyeDirectionCameraSpace;
+	vec3 lightDirectionCameraSpace;
+	vec3 normalCameraSpace;
 	vec3 eye_coord;
 } fragment;
 
@@ -30,12 +32,6 @@ void main () {
 	} else if(texture( shadowMap, fragment.shadowCoord.xy ).z  <  fragment.shadowCoord.z - bias){
 		visibility = 0.5;
 	}
-
-	//Caustics
-	//read depth of vertex
-	//read wave texture in direction of light at sea level
-	//read blur level based on depth
-
 	
 	float waterFactor = 64;
 	float waterScale = 32.0;
@@ -50,14 +46,4 @@ void main () {
 	}
 	else
 		color = vec4(visibility*fragment.color.rgb, fragment.color.a);// + causticColor;
-	
-    //float z = length(fragment.eye_coord)/100;
-
-    //float de = 0.025 * smoothstep(0.0, 6.0, 10.0 - fragment.positionWorldSpace.y);
-    //float di = 0.045 * smoothstep(0.0, 40.0, 20.0 - fragment.positionWorldSpace.y);
-
-    //float extinction   = exp(-z * de);
-    //float inscattering = exp(-z * di);
-
-	//color = color;//*extinction + fogColor*(1.0 - inscattering);
 }

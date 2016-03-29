@@ -54,7 +54,7 @@ struct {
 } camera;
 
 const float ROTATIONSPEED = 0.015f;
-const float MOVESPEED = 2.0f;
+const float MOVESPEED = 0.2f;
 
 void checkForHover(double, double);
 
@@ -73,6 +73,7 @@ GLuint createShaderFromCode (GLenum, std::string);
 ImagePBM readNetpbmFile(GLchar *);
 GLuint createRTexture(GLchar *);
 GLuint createRGBTexture(GLchar *);
+GLuint createRGBTextureMipMapped(GLchar *);
 
 void printFunction();
 
@@ -111,8 +112,9 @@ int main(void) {
 
 	GLuint simpleProgram = createProgram("simplePass.vert", NULL, NULL, NULL, "simplePass.frag");
 	GLuint rainProgram = createProgram("rain.vert", "rain.geom", NULL, NULL, "rain.frag");
-	GLuint causticsProgram = createProgram("causticsPly.vert", "causticsPly.geom", NULL, NULL, "causticsPly.frag");
+	GLuint causticsProgram = createProgram("plyColor.vert", "plyColor.geom", NULL, NULL, "causticsPly.frag");
 	GLuint plyColorProgram = createProgram("plyColor.vert", "plyColor.geom", NULL, NULL, "plyColor.frag");
+	GLuint plyUVProgram = createProgram("plyUV.vert", "plyUV.geom", NULL, NULL, "plyUV.frag");
 	GLuint waveProgram = createProgram("wave.vert", "wave.geom", NULL, NULL, "wave.frag");
 	GLuint buttonProgram = createProgram("button.vert", NULL, NULL, NULL, "button.frag");
 	GLuint shadowProgram = createProgram("shadowDepth.vert", NULL, NULL, NULL, "shadowDepth.frag");
@@ -259,6 +261,9 @@ int main(void) {
 	GLuint worldDepthMap = createRTexture("Textures/worldDepthFull.pbm");
 	GLuint worldDepthMapFoam = createRTexture("Textures/worldDepthFoam.pbm");
 	GLuint waterFoam = createRTexture("Textures/foamDark.pbm");
+	GLuint marbleTexture = createRGBTexture("Textures/marble.pbm");
+	GLuint waveTexture = createRGBTextureMipMapped("Textures/waveTexture.pbm");
+
 	GLuint waterCaustic[30];
 	for(int i=0; i<30; i++) {
 		GLchar textureFileName[100];
@@ -272,11 +277,12 @@ int main(void) {
 	Model monkey("Models/Monkey.obj");
 	Model ship("Models/Ship.obj");
 	Model room("Models/room_thickwalls2.obj");
-	Model wave("Models/wave.obj");
 	
 	Model plyPlane("Models/plane.ply", PLYMALLOC);
 	Model plyCube("Models/cube.ply", PLYMALLOC);
-	Model plyWorld("Models/World8.ply", PLYMALLOC);
+	Model plyWave("Models/wave.ply", PLYMALLOC);
+	Model plyWorld("Models/WorldColor.ply", PLYMALLOC);
+	Model plyMarble("Models/marble2.ply", PLYUVMALLOC);
 	
 	//Model cube("Models/cube.dae", COLLADAE);
 	//Model land("Models/Land.dae", COLLADAE);
@@ -287,8 +293,8 @@ int main(void) {
 	camera.rotation = glm::vec2();
 	camera.translation = glm::vec3();
 	
-	glm::vec4 lightPos(20.0, -120.0, 580.0, 1.0);
-	glm::vec3 lightColor(0.6, 0.6, 0.9);
+	glm::vec4 lightPos(520.0, 120.0, 580.0, 1.0);
+	glm::vec3 lightColor(1.0, 1.0, 1.0);
 	GLfloat lightPower(1.0);
 
 	glm::vec3 eye(0.0, 2.5, 1.0);
@@ -318,6 +324,8 @@ int main(void) {
 	room.scale(glm::vec3(1.0, 1.0, 1.0));
 	room.translate(glm::vec3(0.0, 0.0, 0.0));
 
+	plyMarble.translate(glm::vec3(0.0f, 1.0f, 0.0f));
+
 	//cube.translate(glm::vec3(0.0, 1.0, 0.0));
 
 	glm::mat4 mvpWater = perspectiveMatrix * viewMatrix * modelMatrixWater;
@@ -338,8 +346,8 @@ int main(void) {
 	GLfloat shadowPos[3] = {10.0f, 10.0f, 3.6f};
 	GLfloat shadowSliderColor[4] = {0.0f, 0.0f, 1.0f, 0.3f};
 	GLfloat sphereControls[2] = {1.0f, 1.0f};
-	GLfloat sphereControlsSliderColor[4] = {1.0f, 0.0f, 0.0f, 0.3f};
-	GLfloat spherePosition[3] = {1.0f, 1.0f, 1.0f};
+	GLfloat sphereControlsSliderColor[4] = {1.0f, 0.0f, 1.0f, 0.3f};
+	GLfloat spherePosition[3] = {0.0f, 0.0f, 0.0f};
 	GLfloat spherePositionSliderColor[4] = {1.0f, 0.0f, 0.0f, 0.3f};
 
 	GLfloat textureSelect = 0.0;
@@ -391,9 +399,6 @@ int main(void) {
 		texOffset.y = time/40.0f;
 
 		float sinValue = (sin(time)/4.0f + 1.25f);
-
-		wave.translate(-camera.translation);
-		wave.rotate(camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
 
 		/////////////////
 		//Camera Controls
@@ -540,7 +545,7 @@ int main(void) {
 		lighthouse.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*lighthouse.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		lighthouse.render();
+		//lighthouse.render();
 		
 		//Monkey
 		monkey.setVP(perspectiveMatrix*viewMatrix);
@@ -563,7 +568,7 @@ int main(void) {
 		/////Ply Files
 
 		glUseProgram(plyColorProgram);
-		glUniform3fv(5, 1, &mvpLightPosCorrect[0]);
+		glUniform3fv(5, 1, &lightPos[0]);
 		glUniform3fv(6, 1, &lightColor[0]);
 		glUniform1f(7, lightPower);
 		
@@ -578,23 +583,27 @@ int main(void) {
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*plyCube.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
 		glUniformMatrix4fv(8, 1, GL_FALSE, &plyCube.getMatrix()[0][0]);
-		plyCube.renderPLY();
+		//plyCube.renderPLY();
 		
 		//PLY Plane
 		plyPlane.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*plyPlane.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
 		glUniformMatrix4fv(8, 1, GL_FALSE, &plyPlane.getMatrix()[0][0]);
-		plyPlane.renderPLY();
-		
+		//plyPlane.renderPLY();
+
+
+		////////////Render World
 
 		glUseProgram(causticsProgram);
-		glUniform3fv(5, 1, &mvpLightPosCorrect[0]);
+		glUniform3fv(5, 1, &lightPos[0]);
 		glUniform3fv(6, 1, &lightColor[0]);
 		glUniform1f(7, lightPower);
 		
 		glUniformMatrix4fv(9, 1, GL_FALSE, &viewMatrix[0][0]);
 		glUniform1f(10, bias);
+		glUniform2fv(11, 1, &texOffset[0]);
+		glUniform3fv(12, 1, &lightPos[0]);
 		
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, depthMap);
@@ -612,34 +621,11 @@ int main(void) {
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*plyWorld.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
 		glUniformMatrix4fv(8, 1, GL_FALSE, &plyWorld.getMatrix()[0][0]);
-		glUniform2fv(11, 1, &texOffset[0]);
-		glUniform3fv(12, 1, &lightPos[0]);
 		plyWorld.renderPLY();
-		
+
+
+
 		/////Ply Files
-
-
-
-		//Wave
-		glUseProgram(waveProgram);
-		glUniform3fv(5, 1, &mvpLightPosCorrect[0]);
-		glUniform3fv(6, 1, &lightColor[0]);
-		glUniform1f(7, lightPower);
-		glUniform1f(8, sphereControls[0]);
-		glUniform1f(9, sphereControls[1]);
-
-		glUniform1f(10, bias);
-		glUniform3fv(11, 1, &spherePosition[0]);
-		
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, depthMap);
-
-		wave.setVP(perspectiveMatrix*viewMatrix);
-		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*wave.getMatrix();
-		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		//wave.render();
-
-		glBindTexture(GL_TEXTURE_2D, 0);
 
 		//Water
 		glDepthMask(GL_FALSE);
@@ -705,6 +691,74 @@ int main(void) {
 		glBindTexture(GL_TEXTURE_2D, 0);
 		
 		glDepthMask(GL_TRUE);
+		///End of Water
+		
+
+		
+		//Render Wave
+		glUseProgram(waveProgram);
+		glUniform3fv(5, 1, &lightPos[0]);
+		glUniform3fv(6, 1, &lightColor[0]);
+		glUniform1f(7, lightPower);
+		
+		glUniformMatrix4fv(9, 1, GL_FALSE, &viewMatrix[0][0]);
+		glUniform1f(10, bias);
+		glUniform2fv(11, 1, &texOffset[0]);
+		glUniform3fv(12, 1, &lightPos[0]);
+		glUniform1fv(13, 1, &sphereControls[0]);
+		glUniform1fv(14, 1, &sphereControls[1]);
+		glUniform3fv(15, 1, &spherePosition[0]);
+		glUniform3fv(16, 1, &skyColor[0]);
+
+		glm::vec2 waveTextureOffset = glm::vec2(-time/2, 0.0);
+		glUniform2fv(17, 1, &waveTextureOffset[0]);
+		
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+		
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, waveTexture);
+
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
+		
+		plyWave.setVP(perspectiveMatrix*viewMatrix);
+		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*plyWave.getMatrix();
+		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+		glUniformMatrix4fv(8, 1, GL_FALSE, &plyWave.getMatrix()[0][0]);
+		plyWave.renderPLY();
+
+		glDisable(GL_CULL_FACE);
+
+		///Render Marbles
+		glUseProgram(plyUVProgram);
+		glUniform3fv(5, 1, &lightPos[0]);
+		glUniform3fv(6, 1, &lightColor[0]);
+		glUniform1f(7, lightPower);
+		
+		glUniformMatrix4fv(9, 1, GL_FALSE, &viewMatrix[0][0]);
+		glUniform1f(10, bias);
+		
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+		
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, marbleTexture);
+
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
+		
+		float marbleSin = (sin(time*2)/40.0f);
+		plyMarble.translate(glm::vec3(0.0f, marbleSin, 0.0f));
+
+		//PLY Marble
+		plyMarble.setVP(perspectiveMatrix*viewMatrix);
+		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*plyMarble.getMatrix();
+		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+		glUniformMatrix4fv(8, 1, GL_FALSE, &plyMarble.getMatrix()[0][0]);
+		plyMarble.renderPLY();
+
+		glDisable(GL_CULL_FACE);
 
 		//Light
 		glUseProgram(simpleProgram);
@@ -820,6 +874,24 @@ GLuint createRGBTexture(GLchar * textureFileName) {
 
 	glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB8, colorMap.width, colorMap.height);
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorMap.width, colorMap.height, GL_RGB, GL_UNSIGNED_BYTE, colorMap.data);
+
+	delete [] colorMap.data;
+	return colorMapID;
+}
+
+GLuint createRGBTextureMipMapped(GLchar * textureFileName) {
+	ImagePBM colorMap = readNetpbmFile(textureFileName);
+
+	GLuint colorMapID;
+	glGenTextures(1, &colorMapID);
+	glBindTexture(GL_TEXTURE_2D, colorMapID);
+
+	glTexStorage2D(GL_TEXTURE_2D, 9, GL_RGB8, colorMap.width, colorMap.height);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorMap.width, colorMap.height, GL_RGB, GL_UNSIGNED_BYTE, colorMap.data);
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 
 	delete [] colorMap.data;
 	return colorMapID;
