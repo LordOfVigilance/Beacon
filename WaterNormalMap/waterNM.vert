@@ -9,9 +9,9 @@ out VS_OUT {
 } vsOut;
 
 void main(void) {
-	int waterFactor = 64;
-	int waterFactorLog = 6;
-	float waterScale = 32.0;
+	int waterFactor = 128;
+	int waterFactorLog = 7;
+	float waterScale = 64.0;
 
 	const vec4 vertices[] = vec4[](vec4(-0.5, 0.0, -0.5, 1.0),
 								   vec4( 0.5, 0.0, -0.5, 1.0),

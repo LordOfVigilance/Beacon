@@ -119,6 +119,7 @@ void main(void) {
     vec3 reflectionColor = vec3(colorR, colorR, colorR);
 	
 	float worldDepthValue = texture( worldDepthMap, vec2(fsIn.worldPosition.x/2560 + 0.5, fsIn.worldPosition.z/2560 + 0.5), 0).r;
+	float worldDepthAlpha = clamp(texture( worldDepthMap, vec2(fsIn.worldPosition.x/2560 + 0.5, fsIn.worldPosition.z/2560 + 0.5), 0).r, 0.7, 1.0);
 	float worldDepthFoamValue = texture( worldDepthMapFoam, vec2(fsIn.worldPosition.x/2560 + 0.5, fsIn.worldPosition.z/2560 + 0.5), 0).r;
 
 
@@ -131,7 +132,7 @@ void main(void) {
 	float foamR2 = texture( foamTexture, fsIn.foamTextureCoord2*20, 0).r;
 	vec4 foamColor2 = vec4(vec3(foamR2*foamAlpha*0.5, foamR2*foamAlpha*0.7, foamR2*foamAlpha), foamR2*foamAlpha*foamDmapDepth/2);
 
-	vec4 waterColor = vec4(trueReflectionColor*(1 - abs(dmap_depth/10)) + (specularColorComp + reflectionColorComp*(1 - foamAlpha*2) + diffuseColorComp)*(abs(dmap_depth/10)*0.8 + 0.2), zDifference*alphaComp*worldDepthValue);
+	vec4 waterColor = vec4(trueReflectionColor*(1 - abs(dmap_depth/10)) + (specularColorComp + reflectionColorComp*(1 - foamAlpha*2) + diffuseColorComp)*(abs(dmap_depth/10)*0.8 + 0.2), zDifference*alphaComp*worldDepthAlpha);
 
 	color = waterColor + foamColor + foamColor2;
 }

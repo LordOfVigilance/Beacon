@@ -54,7 +54,7 @@ struct {
 } camera;
 
 const float ROTATIONSPEED = 0.015f;
-const float MOVESPEED = 0.2f;
+const float MOVESPEED = 2.0f;
 
 void checkForHover(double, double);
 
@@ -72,8 +72,10 @@ std::string readFile (GLchar *);
 GLuint createShaderFromCode (GLenum, std::string);
 ImagePBM readNetpbmFile(GLchar *);
 GLuint createRTexture(GLchar *);
+GLuint createRTextureClamped(GLchar *);
 GLuint createRGBTexture(GLchar *);
 GLuint createRGBTextureMipMapped(GLchar *);
+void renderSplashScreen(GLuint, GLuint, GLFWwindow*);
 
 void printFunction();
 
@@ -87,6 +89,10 @@ int main(void) {
 
 	GLFWwindow* window = openGLInit(1280, 720, "Water Normal Mapped");
 
+	GLuint texProgram = createProgram("tex.vert", NULL, NULL, NULL, "tex.frag");
+	GLuint splashScreenTexture = createRGBTexture("textures/splashscreen.pbm");
+	renderSplashScreen(texProgram, splashScreenTexture, window);
+	
 	GLuint program = createProgram("waterNM.vert", "waterNM.geom", "waterNM.tcs", "waterNM.tes", "waterNM.frag");
 	uniforms.dmapDepth = glGetUniformLocation(program, "dmap_depth");
 	uniforms.mvp = glGetUniformLocation(program, "mvp");
@@ -118,8 +124,6 @@ int main(void) {
 	GLuint waveProgram = createProgram("wave.vert", "wave.geom", NULL, NULL, "wave.frag");
 	GLuint buttonProgram = createProgram("button.vert", NULL, NULL, NULL, "button.frag");
 	GLuint shadowProgram = createProgram("shadowDepth.vert", NULL, NULL, NULL, "shadowDepth.frag");
-	
-	GLuint texProgram = createProgram("tex.vert", NULL, NULL, NULL, "tex.frag");
 	GLuint reflectionProgram = createProgram("reflection.vert", NULL, NULL, NULL, "reflection.frag");
 
 	glPatchParameteri(GL_PATCH_VERTICES, 4);
@@ -258,8 +262,8 @@ int main(void) {
 	GLuint waterNormalMap = createRGBTexture("Textures/Water_NRM.pbm");
 	GLuint fiberTexture = createRTexture("Textures/colorMap.pbm");
 	
-	GLuint worldDepthMap = createRTexture("Textures/worldDepthFull.pbm");
-	GLuint worldDepthMapFoam = createRTexture("Textures/worldDepthFoam.pbm");
+	GLuint worldDepthMap = createRTextureClamped("Textures/worldDepthFull.pbm");
+	GLuint worldDepthMapFoam = createRTextureClamped("Textures/worldDepthFoam.pbm");
 	GLuint waterFoam = createRTexture("Textures/foamDark.pbm");
 	GLuint marbleTexture = createRGBTexture("Textures/marble.pbm");
 	GLuint waveTexture = createRGBTextureMipMapped("Textures/waveTexture.pbm");
@@ -324,7 +328,7 @@ int main(void) {
 	room.scale(glm::vec3(1.0, 1.0, 1.0));
 	room.translate(glm::vec3(0.0, 0.0, 0.0));
 
-	plyMarble.translate(glm::vec3(0.0f, 1.0f, 0.0f));
+	plyMarble.translate(glm::vec3(0.0f, 1.0f, -10.0f));
 
 	//cube.translate(glm::vec3(0.0, 1.0, 0.0));
 
@@ -347,7 +351,7 @@ int main(void) {
 	GLfloat shadowSliderColor[4] = {0.0f, 0.0f, 1.0f, 0.3f};
 	GLfloat sphereControls[2] = {1.0f, 1.0f};
 	GLfloat sphereControlsSliderColor[4] = {1.0f, 0.0f, 1.0f, 0.3f};
-	GLfloat spherePosition[3] = {0.0f, 0.0f, 0.0f};
+	GLfloat spherePosition[3] = {3.8f, 0.0f, 0.0f};
 	GLfloat spherePositionSliderColor[4] = {1.0f, 0.0f, 0.0f, 0.3f};
 
 	GLfloat textureSelect = 0.0;
@@ -389,6 +393,11 @@ int main(void) {
 	int animationFrame = 0;
 	float lastFrameTime, time;
 	lastFrameTime = time = startTime;
+
+	GLfloat currentTime;
+	do {
+		currentTime = (GLfloat) glfwGetTime();
+	} while(currentTime - startTime < 0.5f);
 
 	while(!glfwWindowShouldClose(window) && !terminated) {
 		clearColorValue = glm::vec4(skyColor.r, skyColor.g, skyColor.b, 1.0);
@@ -687,7 +696,7 @@ int main(void) {
 		glUniform1f(uniforms.var5, var5);
 		glUniform1f(uniforms.var6, var6);
 
-		glDrawArraysInstanced(GL_PATCHES, 0, 4, 64*64);
+		glDrawArraysInstanced(GL_PATCHES, 0, 4, 128*128);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		
 		glDepthMask(GL_TRUE);
@@ -860,6 +869,22 @@ GLuint createRTexture(GLchar * textureFileName) {
 
 	glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, colorMap.width, colorMap.height);
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorMap.width, colorMap.height, GL_RED, GL_UNSIGNED_BYTE, colorMap.data);
+
+	delete [] colorMap.data;
+	return colorMapID;
+}
+
+GLuint createRTextureClamped(GLchar * textureFileName) {
+	ImagePBM colorMap = readNetpbmFile(textureFileName);
+
+	GLuint colorMapID;
+	glGenTextures(1, &colorMapID);
+	glBindTexture(GL_TEXTURE_2D, colorMapID);
+
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, colorMap.width, colorMap.height);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorMap.width, colorMap.height, GL_RED, GL_UNSIGNED_BYTE, colorMap.data);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 	delete [] colorMap.data;
 	return colorMapID;
@@ -1188,4 +1213,22 @@ GLuint createShaderFromCode (GLenum shaderType, std::string code)
 	}
 
 	return shaderInt;
+}
+
+void renderSplashScreen(GLuint program, GLuint texture, GLFWwindow* window) {
+	GLfloat* depth = new GLfloat(1.0f);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glViewport(0, 0, 1280, 720);
+	glClearBufferfv(GL_COLOR, 0, &glm::vec4(0.0, 0.0, 0.0, 1.0)[0]);
+	glClearBufferfv(GL_DEPTH, 0, depth);
+
+	glUseProgram(program);
+		
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture);
+
+	glDrawArrays(GL_QUADS, 0, 4);
+	
+	glfwSwapBuffers(window);
 }
