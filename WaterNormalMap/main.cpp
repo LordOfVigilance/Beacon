@@ -318,7 +318,7 @@ int main(void) {
 
 	camera.rotation = glm::vec2();
 	
-    Player player = Player(glm::vec3(0, -0.1f, 0), glm::vec2(3.14f, 0.0f), Model("Models/wave.obj"), &sounds);
+    Player player = Player(glm::vec3(0, -0.1f, 0), glm::vec2(3.14f, 0.0f), Model("Models/wave.ply", PLYMALLOC), &sounds);
 	camera.translation = player.getPosition() + glm::vec3(0.0f, 2.0f, 4.0f);
     
     
@@ -437,8 +437,8 @@ int main(void) {
 
 		/////////////////
 		//Camera Controls
-		viewMatrix = glm::rotate(viewMatrix, camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
-		viewMatrix = glm::translate(viewMatrix, camera.translation);
+		//viewMatrix = glm::rotate(viewMatrix, camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
+		//viewMatrix = glm::translate(viewMatrix, camera.translation);
 		reflectionViewMatrix = glm::rotate(reflectionViewMatrix, camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
 
 		glm::vec3 cameraReflection (camera.translation.x, -camera.translation.y, camera.translation.z);
@@ -872,6 +872,8 @@ ImagePBM readNetpbmFile(GLchar * ppmFileName) {
 		imageStruct.elements = 1;
 	else if(netpbmFileType.compare("P6") == 0)
 		imageStruct.elements = 3;
+	else
+		imageStruct.elements = 3;
 
 	imageStruct.data = reinterpret_cast<GLubyte*>(malloc(sizeof(GLubyte)*imageStruct.width*imageStruct.height*imageStruct.elements));
 
@@ -991,7 +993,7 @@ GLFWwindow* openGLInit(GLint width, GLint height, GLchar* windowTitle) {
 
 void keyCallback (GLFWwindow * window, int key, int scancode, int action, int mods)
 {
-
+	/*
 	if (action == GLFW_PRESS)
 	{
 		if (key == GLFW_KEY_E || key == GLFW_KEY_RIGHT)
@@ -1075,7 +1077,7 @@ void keyCallback (GLFWwindow * window, int key, int scancode, int action, int mo
 			glfwTerminate();
 			terminated = true;
 		}
-	}
+	}*/
 }
 
 void mouseMoveCallback(GLFWwindow * window, double mouseX, double mouseY) {
