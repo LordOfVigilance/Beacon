@@ -31,7 +31,7 @@ Player::Player(glm::vec3 positionIn, glm::vec2 rotationIn, Model modelIn, Sound*
 	direction = glm::vec3(-cos(0.0f) * sin(rotation.x), sin(0.0f), -cos(0.0f) * cos(rotation.x));
 	playerModel.scale(glm::vec3(scale, scale, scale));
 	playerModel.translate(position);
-	playerModel.rotate(rotation.x, glm::vec3(0.0f, 1.0f, 0.0f));
+	playerModel.rotate(rotation.x - (3.14159265f/2.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 }
 
 
@@ -129,7 +129,7 @@ void Player::translate(glm::vec3 translation)
 	float magnitude = sqrt(pow(translation.x,2) + pow(translation.z, 2));
 	float inverseScale = 1.0f / scale;
 	playerModel.scale(glm::vec3(inverseScale, inverseScale, inverseScale));
-	playerModel.translate((glm::vec3(0.0f,0.0f,1.0f) * magnitude));
+	playerModel.translate((glm::vec3(1.0f,0.0f,0.0f) * magnitude));
 	playerModel.scale(glm::vec3(scale, scale, scale));
 }
 

@@ -318,7 +318,7 @@ int main(void) {
 
 	camera.rotation = glm::vec2();
 	
-    Player player = Player(glm::vec3(0, -0.1f, 0), glm::vec2(0.0f, 0.0f), Model("Models/wave.ply", PLYMALLOC), &sounds);
+    Player player = Player(glm::vec3(0, -0.1f, 0), glm::vec2(3.14f, 0.0f), Model("Models/wave.ply", PLYMALLOC), &sounds);
 	camera.translation = player.getPosition() + glm::vec3(0.0f, 2.0f, 4.0f);
     
     
@@ -376,7 +376,7 @@ int main(void) {
 	GLfloat shadowSliderColor[4] = {0.0f, 0.0f, 1.0f, 0.3f};
 	GLfloat sphereControls[2] = {1.0f, 1.0f};
 	GLfloat sphereControlsSliderColor[4] = {1.0f, 0.0f, 1.0f, 0.3f};
-	GLfloat spherePosition[3] = {3.8f, 0.0f, 0.0f};
+	GLfloat spherePosition[3] = {3.8f, 0.0f, 0.0f };
 	GLfloat spherePositionSliderColor[4] = {1.0f, 0.0f, 0.0f, 0.3f};
 
 	GLfloat textureSelect = 0.0;
@@ -1290,7 +1290,7 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	int width;
 	int height;
 	glfwGetWindowSize(window, &width, &height);
-	glfwSetCursorPos(window, width / 2, height / 2);
+	//glfwSetCursorPos(window, width / 2, height / 2);
 
 	if (!locked)
 	{
