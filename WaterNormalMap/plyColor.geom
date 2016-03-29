@@ -15,19 +15,25 @@ in VERTEX {
 	vec3 eyeDirectionCameraSpace;
 	vec3 lightDirectionCameraSpace;
 	vec3 normalCameraSpace;
+	vec3 eye_coord;
 } vertex[];
 
 out FRAGMENT {
 	vec4 color;
 	vec4 shadowCoord;
 	float cos;
+	vec3 positionWorldSpace;
+	vec3 eyeDirectionCameraSpace;
+	vec3 lightDirectionCameraSpace;
+	vec3 normalCameraSpace;
+	vec3 eye_coord;
 } fragment;
 
 void main (void) {
 	
 	// Material properties
 	vec3 materialDiffuseColor = vertex[0].color;
-	vec3 materialAmbientColor = vec3(0.1,0.1,0.1)*materialDiffuseColor;
+	vec3 materialAmbientColor = vec3(0.8,0.8,0.8)*materialDiffuseColor;
 	vec3 materialSpecularColor = vec3(0.3,0.3,0.3);
 	
 	// Distance to the light
@@ -50,6 +56,12 @@ void main (void) {
 		fragment.color = vec4(color, 1.0);
 		fragment.shadowCoord = vertex[i].shadowCoord;
 		fragment.cos = 1.0;
+		
+		fragment.positionWorldSpace = vertex[i].positionWorldSpace;
+		fragment.eyeDirectionCameraSpace = vertex[i].eyeDirectionCameraSpace;
+		fragment.lightDirectionCameraSpace = vertex[i].lightDirectionCameraSpace;
+		fragment.normalCameraSpace = vertex[i].normalCameraSpace;
+		fragment.eye_coord = vertex[i].eye_coord;
 
 		EmitVertex();
 	}

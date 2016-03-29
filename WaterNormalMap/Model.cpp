@@ -43,6 +43,7 @@ Model::Model(GLchar* fileName, int fileType) : matrix(1.0f) {
 	
 	GLfloat* verticesMalloc = NULL;
 	GLfloat* verticesColorMalloc = NULL;
+	GLfloat* verticesUVMalloc = NULL;
 	GLfloat* normalsMalloc = NULL;
 	GLuint* indexMalloc = NULL;
 	int verticesCount;
@@ -89,7 +90,7 @@ Model::Model(GLchar* fileName, int fileType) : matrix(1.0f) {
 
 		break;
 	case PLY:
-		loadPLYIndexed(fileName, verticesObj, normalsObj, plyIndicesObj, vertexColorObj);
+		loadPlyIndexed(fileName, verticesObj, normalsObj, plyIndicesObj, vertexColorObj);
 		
 		//Create a vertex attribute object
 		glGenVertexArrays(1, &vao);
@@ -130,7 +131,7 @@ Model::Model(GLchar* fileName, int fileType) : matrix(1.0f) {
 		break;
 	case PLYMALLOC:
 
-		loadPLYIndexedMalloc(fileName, &verticesMalloc, &verticesColorMalloc, &normalsMalloc, &indexMalloc, &verticesCount, &facesCount);
+		loadPlyIndexedMalloc(fileName, &verticesMalloc, &verticesColorMalloc, &normalsMalloc, &indexMalloc, &verticesCount, &facesCount);
 		
 		//Create a vertex attribute object
 		glGenVertexArrays(1, &vao);
@@ -170,6 +171,52 @@ Model::Model(GLchar* fileName, int fileType) : matrix(1.0f) {
 		
 		free(verticesMalloc);
 		free(verticesColorMalloc);
+		free(normalsMalloc);
+		free(indexMalloc);
+
+		break;
+	case PLYUVMALLOC:
+
+		loadPlyUVIndexedMalloc(fileName, &verticesMalloc, &verticesUVMalloc, &normalsMalloc, &indexMalloc, &verticesCount, &facesCount);
+		
+		//Create a vertex attribute object
+		glGenVertexArrays(1, &vao);
+		glBindVertexArray(vao);
+
+		//Create a buffer from openGL
+		glGenBuffers(1, &vbo);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+		//Allocate space from openGL for the rain attributes  Position, UV, Normal
+		glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*verticesCount*4 + sizeof(GLfloat)*verticesCount*3 + sizeof(GLfloat)*verticesCount*3, NULL, GL_STATIC_DRAW);
+
+		//Fill each attribue with data
+		glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(GLfloat)*verticesCount*4, verticesMalloc);
+		offset += sizeof(GLfloat)*verticesCount*4;
+		
+		//Fill each attribue with data
+		glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(GLfloat)*verticesCount*3, verticesUVMalloc);
+		offset += sizeof(GLfloat)*verticesCount*3;
+		
+		//Fill each attribue with data
+		glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(GLfloat)*verticesCount*3, normalsMalloc);
+
+		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)(sizeof(GLfloat)*verticesCount*4));
+		glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)(sizeof(GLfloat)*verticesCount*4 + sizeof(GLfloat)*verticesCount*3));
+
+		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
+		glEnableVertexAttribArray(2);
+
+		glGenBuffers(1, &vertexIndicesBuffer);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexIndicesBuffer);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*facesCount*3, indexMalloc, GL_STATIC_DRAW);
+
+		vertexCount = facesCount*3;
+		
+		free(verticesMalloc);
+		free(verticesUVMalloc);
 		free(normalsMalloc);
 		free(indexMalloc);
 
@@ -352,7 +399,7 @@ bool Model::loadObjIndexed(const char * obj_file_name, std::vector<GLfloat>& ver
 	return true;
 }
 
-bool Model::loadPLYIndexed(const char * objFileName, std::vector<GLfloat>& vertexPositions, std::vector<GLfloat>& vertexNormals, std::vector<GLuint>& vertexIndices, std::vector<GLfloat>& vertexColours) {
+bool Model::loadPlyIndexed(const char * objFileName, std::vector<GLfloat>& vertexPositions, std::vector<GLfloat>& vertexNormals, std::vector<GLuint>& vertexIndices, std::vector<GLfloat>& vertexColours) {
 	//read the indices
 	FILE * objFile = fopen (objFileName, "r");
 	
@@ -433,7 +480,7 @@ bool Model::loadPLYIndexed(const char * objFileName, std::vector<GLfloat>& verte
 	return true;
 }
 
-bool Model::loadPLYIndexedMalloc(const char * objFileName, GLfloat** vertices, GLfloat** vertexColors, GLfloat** normals, GLuint** indices, int* vertexCount, int* faceCount) {
+bool Model::loadPlyIndexedMalloc(const char * objFileName, GLfloat** vertices, GLfloat** vertexColors, GLfloat** normals, GLuint** indices, int* vertexCount, int* faceCount) {
 
 	//Check for binary file
 	std::string binaryFileName(objFileName);
@@ -539,6 +586,118 @@ bool Model::loadPLYIndexedMalloc(const char * objFileName, GLfloat** vertices, G
 			outFile.write((char*)faceCount, sizeof(int));
 			outFile.write(reinterpret_cast<char*>(*vertices), sizeof(GLfloat)*(*vertexCount)*4);
 			outFile.write(reinterpret_cast<char*>(*vertexColors), sizeof(GLfloat)*(*vertexCount)*3);
+			outFile.write(reinterpret_cast<char*>(*normals), sizeof(GLfloat)*(*vertexCount)*3);
+			outFile.write(reinterpret_cast<char*>(*indices), sizeof(GLuint)*(*faceCount)*3);
+
+			outFile.close();
+		}
+	}
+
+	return true;
+}
+
+bool Model::loadPlyUVIndexedMalloc(const char * objFileName, GLfloat** vertices, GLfloat** vertexUVs, GLfloat** normals, GLuint** indices, int* vertexCount, int* faceCount) {
+
+	//Check for binary file
+	std::string binaryFileName(objFileName);
+	binaryFileName = binaryFileName.substr(0, binaryFileName.length() - 3).append("dat");
+
+	struct stat buf;
+    if (stat((binaryFileName).c_str(), &buf) != -1) {
+		printf("PLY Binary\n");
+		//Binary File exists
+		std::ifstream inFile;
+		inFile.open(binaryFileName, std::ios::binary | std::ios::in);
+
+		//Read Vertex Count
+		inFile.read((char*)vertexCount, sizeof(int));
+
+		//Read Face Count
+		inFile.read((char*)faceCount, sizeof(int));
+		
+
+		*vertices = (GLfloat*)malloc(sizeof(GLfloat)*(*vertexCount)*4);
+		*vertexUVs = (GLfloat*)malloc(sizeof(GLfloat)*(*vertexCount)*3);
+		*normals = (GLfloat*)malloc(sizeof(GLfloat)*(*vertexCount)*3);
+		*indices = (GLuint*)malloc(sizeof(GLuint)*(*faceCount)*3);
+
+		//Read Elements
+		inFile.read(reinterpret_cast<char*>(*vertices), sizeof(GLfloat)*(*vertexCount)*4);
+		inFile.read(reinterpret_cast<char*>(*vertexUVs), sizeof(GLfloat)*(*vertexCount)*3);
+		inFile.read(reinterpret_cast<char*>(*normals), sizeof(GLfloat)*(*vertexCount)*3);
+		inFile.read(reinterpret_cast<char*>(*indices), sizeof(GLuint)*(*faceCount)*3);
+
+		inFile.close();
+    } else {
+
+		//read the indices
+		FILE * objFile = fopen (objFileName, "r");
+	
+		//File not opened
+		if ( objFile == NULL ) {
+			fprintf(stderr, "ERROR: %s could not be opened", objFileName);
+
+			return false;
+		}
+		//File opened
+		else {
+			printf("PLY\n");
+
+			while ( 1 ) {
+
+				char lineHeader[128];
+				int res = fscanf ( objFile, "%s", lineHeader );
+				if ( res == EOF )
+					break;
+
+				if(strcmp (lineHeader, "element") == 0) {
+					fscanf ( objFile, "%s", lineHeader );
+
+					if(strcmp(lineHeader, "vertex") == 0) {
+						fscanf(objFile, "%u\n", vertexCount);
+
+						*vertices = (GLfloat*)malloc(sizeof(GLfloat)*(*vertexCount)*4);
+						*vertexUVs = (GLfloat*)malloc(sizeof(GLfloat)*(*vertexCount)*3);
+						*normals = (GLfloat*)malloc(sizeof(GLfloat)*(*vertexCount)*3);
+
+					} else if (strcmp(lineHeader, "face") == 0) {
+						fscanf(objFile, "%u\n", faceCount);
+
+						*indices = (GLuint*)malloc(sizeof(GLuint)*(*faceCount)*3);
+					}
+				}
+
+				if ( strcmp (lineHeader, "end_header") == 0 ) {
+					if(*vertexCount < 1 || *faceCount < 1)
+						return false;
+
+					for(int i=0; i<*vertexCount; i++) {
+						fscanf(objFile, "%f %f %f %f %f %f %f %f\n", (*vertices) + i*4, (*vertices) + i*4 + 1, (*vertices) + i*4 + 2, (*normals) + i*3, (*normals) + i*3 + 1, (*normals) + i*3 + 2, (*vertexUVs) + i*3, (*vertexUVs) + i*3 + 1);
+						*((*vertices) + i*4 + 3) = 1.0f;
+						*((*vertexUVs) + i*3 + 2) = 1.0f;
+					}
+				
+					for(int i=0; i<*faceCount; i++) {
+						GLchar indexCount;
+
+						fscanf(objFile, "%c %u %u %u\n", &indexCount, (*indices) + i*3, (*indices) + i*3 + 1, (*indices) + i*3 + 2);
+					
+						if(indexCount != '3') {
+							printf("This mesh is not triangulated");
+							return false;
+						}
+					}
+				}
+			}
+
+			//Create Binary File
+			std::ofstream outFile;
+
+			outFile.open(binaryFileName, std::ios::binary | std::ios::out);
+			outFile.write((char*)vertexCount, sizeof(int));
+			outFile.write((char*)faceCount, sizeof(int));
+			outFile.write(reinterpret_cast<char*>(*vertices), sizeof(GLfloat)*(*vertexCount)*4);
+			outFile.write(reinterpret_cast<char*>(*vertexUVs), sizeof(GLfloat)*(*vertexCount)*3);
 			outFile.write(reinterpret_cast<char*>(*normals), sizeof(GLfloat)*(*vertexCount)*3);
 			outFile.write(reinterpret_cast<char*>(*indices), sizeof(GLuint)*(*faceCount)*3);
 

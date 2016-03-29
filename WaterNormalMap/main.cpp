@@ -1,7 +1,6 @@
 #include "GL/GLEW.h"
 #define GLFW_DLL
 #include "GLFW/glfw3.h"
-
 #include <stdio.h>
 #include <string>
 #include <fstream>
@@ -12,11 +11,7 @@
 #include <vector>
 
 
-
 #include <iostream>
-
-
-
 
 #include "DreamButton.h"
 #include "DreamSlider.h"
@@ -63,6 +58,9 @@ struct {
 	glm::vec3 translation;
 } camera;
 
+const float ROTATIONSPEED = 0.015f;
+const float MOVESPEED = 2.0f;
+
 void checkForHover(double, double);
 
 std::vector<DreamClickable*> buttonList;
@@ -79,9 +77,11 @@ std::string readFile (GLchar *);
 GLuint createShaderFromCode (GLenum, std::string);
 ImagePBM readNetpbmFile(GLchar *);
 GLuint createRTexture(GLchar *);
+GLuint createRTextureClamped(GLchar *);
 GLuint createRGBTexture(GLchar *);
+GLuint createRGBTextureMipMapped(GLchar *);
+void renderSplashScreen(GLuint, GLuint, GLFWwindow*);
 void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Player* player);
-
 
 void printFunction();
 bool locked = true;
@@ -100,20 +100,11 @@ int main(void) {
 
 	GLFWwindow* window = openGLInit(1280, 720, "Water Normal Mapped");
 
+	GLuint texProgram = createProgram("tex.vert", NULL, NULL, NULL, "tex.frag");
+	GLuint splashScreenTexture = createRGBTexture("textures/splashscreen.pbm");
+	renderSplashScreen(texProgram, splashScreenTexture, window);
+	
 	GLuint program = createProgram("waterNM.vert", "waterNM.geom", "waterNM.tcs", "waterNM.tes", "waterNM.frag");
-
-	sounds.loadSounds(1);
-
-	int width;
-	int height;
-	glfwGetWindowSize(window, &width, &height);
-
-
-	glfwSetCursorPos(window, width / 2, height / 2);
-
-
-
-
 	uniforms.dmapDepth = glGetUniformLocation(program, "dmap_depth");
 	uniforms.mvp = glGetUniformLocation(program, "mvp");
 	uniforms.offset = glGetUniformLocation(program, "offset");
@@ -138,13 +129,24 @@ int main(void) {
 
 	GLuint simpleProgram = createProgram("simplePass.vert", NULL, NULL, NULL, "simplePass.frag");
 	GLuint rainProgram = createProgram("rain.vert", "rain.geom", NULL, NULL, "rain.frag");
+	GLuint causticsProgram = createProgram("plyColor.vert", "plyColor.geom", NULL, NULL, "causticsPly.frag");
 	GLuint plyColorProgram = createProgram("plyColor.vert", "plyColor.geom", NULL, NULL, "plyColor.frag");
+	GLuint plyUVProgram = createProgram("plyUV.vert", "plyUV.geom", NULL, NULL, "plyUV.frag");
 	GLuint waveProgram = createProgram("wave.vert", "wave.geom", NULL, NULL, "wave.frag");
 	GLuint buttonProgram = createProgram("button.vert", NULL, NULL, NULL, "button.frag");
 	GLuint shadowProgram = createProgram("shadowDepth.vert", NULL, NULL, NULL, "shadowDepth.frag");
-	
-	GLuint texProgram = createProgram("tex.vert", NULL, NULL, NULL, "tex.frag");
 	GLuint reflectionProgram = createProgram("reflection.vert", NULL, NULL, NULL, "reflection.frag");
+
+
+	sounds.loadSounds(1);
+
+	int width;
+	int height;
+	glfwGetWindowSize(window, &width, &height);
+
+
+	glfwSetCursorPos(window, width / 2, height / 2);
+
 
 	glPatchParameteri(GL_PATCH_VERTICES, 4);
 	glPointSize(16);
@@ -158,6 +160,14 @@ int main(void) {
 	glGenTextures(1, &FBcolorDownSampled);
 	glBindTexture(GL_TEXTURE_2D, FBcolorDownSampled);
 	glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB8, 1280, 720);
+	
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	float borderColor[] = { 1.0f, 0.0f, 1.0f, 1.0f };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, FBcolorDownSampled, 0);
 
@@ -273,17 +283,32 @@ int main(void) {
 	GLuint waterTexture = createRTexture("Textures/Water.pbm");
 	GLuint waterNormalMap = createRGBTexture("Textures/Water_NRM.pbm");
 	GLuint fiberTexture = createRTexture("Textures/colorMap.pbm");
+	
+	GLuint worldDepthMap = createRTextureClamped("Textures/worldDepthFull.pbm");
+	GLuint worldDepthMapFoam = createRTextureClamped("Textures/worldDepthFoam.pbm");
+	GLuint waterFoam = createRTexture("Textures/foamDark.pbm");
+	GLuint marbleTexture = createRGBTexture("Textures/marble.pbm");
+	GLuint waveTexture = createRGBTextureMipMapped("Textures/waveTexture.pbm");
+
+	GLuint waterCaustic[30];
+	for(int i=0; i<30; i++) {
+		GLchar textureFileName[100];
+		sprintf(textureFileName, "Textures/causticsAnimation/lessblur30/CausticsRender_%03d.pbm", i + 1);
+
+		waterCaustic[i] = createRTexture(textureFileName);
+	}
 
 	Model land("Models/Land.obj");
 	Model lighthouse("Models/Lighthouse.obj");	
 	Model monkey("Models/Monkey.obj");
 	Model ship("Models/Ship.obj");
 	Model room("Models/room_thickwalls2.obj");
-	Model wave("Models/wave.obj");
 	
 	Model plyPlane("Models/plane.ply", PLYMALLOC);
 	Model plyCube("Models/cube.ply", PLYMALLOC);
-	Model plyWorld("Models/World.ply", PLYMALLOC);
+	Model plyWave("Models/wave.ply", PLYMALLOC);
+	Model plyWorld("Models/WorldColor.ply", PLYMALLOC);
+	Model plyMarble("Models/marble2.ply", PLYUVMALLOC);
 	
 	//Model cube("Models/cube.dae", COLLADAE);
 	//Model land("Models/Land.dae", COLLADAE);
@@ -292,21 +317,13 @@ int main(void) {
 	//Model ship("Models/Ship.dae", COLLADAE);
 
 	camera.rotation = glm::vec2();
-
-
-
-
-
-
-	Player player = Player(glm::vec3(0, -0.1f, 0), glm::vec2(3.14f, 0.0f), Model("Models/wave.obj"), &sounds);
-
+	
+    Player player = Player(glm::vec3(0, -0.1f, 0), glm::vec2(3.14f, 0.0f), Model("Models/wave.obj"), &sounds);
 	camera.translation = player.getPosition() + glm::vec3(0.0f, 2.0f, 4.0f);
-
-
-
-
-	glm::vec4 lightPos(20.0, -120.0, 580.0, 1.0);
-	glm::vec3 lightColor(0.6, 0.6, 0.9);
+    
+    
+	glm::vec4 lightPos(520.0, 120.0, 580.0, 1.0);
+	glm::vec3 lightColor(1.0, 1.0, 1.0);
 	GLfloat lightPower(1.0);
 
 	glm::vec3 eye(0.0, 2.5, 1.0);
@@ -314,12 +331,12 @@ int main(void) {
 	glm::vec3 up(0.0, -1.0, 0.0);
 	glm::mat4 viewMatrix = glm::lookAt(eye, center, up);
 
-	glm::vec3 eyeReflection(0.0, -2.5, 3.0);
+	glm::vec3 eyeReflection(0.0, -2.5, 1.0);
 	glm::vec3 centerReflection(0.0, -2.5, 0.0);
 	glm::vec3 upReflection(0.0, 1.0, 0.0);
 	glm::mat4 reflectionViewMatrix = glm::scale(glm::lookAt(eyeReflection, centerReflection, upReflection), glm::vec3(-1.0, 1.0, 1.0));
 	
-	glm::mat4 perspectiveMatrix = glm::perspective(30.0f, 16.0f/9.0f, 1.0f, 500.0f);
+	glm::mat4 perspectiveMatrix = glm::perspective(30.0f, 16.0f/9.0f, 0.1f, 3000.0f);
 
 	glm::mat4 modelMatrixLight(1.0f);
 	glm::mat4 modelMatrixWater(1.0f);
@@ -328,13 +345,15 @@ int main(void) {
 	land.translate(glm::vec3(0.0, -0.4, 0.0));
 
 	lighthouse.scale(glm::vec3(1.0, 1.0, 1.0));
-	lighthouse.translate(glm::vec3(0.0, 10.0, 0.0));
+	lighthouse.translate(glm::vec3(0.0, 0.0, 0.0));
 
 	ship.translate(glm::vec3(70.0, 0.0, 25.0));
 	ship.rotate(90.0f, glm::vec3(0.0, 1.0, 0.0));
 	
 	room.scale(glm::vec3(1.0, 1.0, 1.0));
-	room.translate(glm::vec3(0.0, 10.0, 0.0));
+	room.translate(glm::vec3(0.0, 0.0, 0.0));
+
+	plyMarble.translate(glm::vec3(0.0f, 1.0f, -10.0f));
 
 	//cube.translate(glm::vec3(0.0, 1.0, 0.0));
 
@@ -344,6 +363,7 @@ int main(void) {
 	glm::vec3 reflectionColor(0.22f, 0.3f, 0.36f);
 	glm::vec3 specularColor(0.68f, 0.33f, 0.11f);
 	glm::vec3 diffuseColor(0.25f, 0.32f, 0.43f);
+	glm::vec3 skyColor(0.78f, 0.91f, 1.0f);
 
 	GLfloat var1 = 1.4f;
 	GLfloat var2 = 2.4f;
@@ -355,8 +375,8 @@ int main(void) {
 	GLfloat shadowPos[3] = {10.0f, 10.0f, 3.6f};
 	GLfloat shadowSliderColor[4] = {0.0f, 0.0f, 1.0f, 0.3f};
 	GLfloat sphereControls[2] = {1.0f, 1.0f};
-	GLfloat sphereControlsSliderColor[4] = {1.0f, 0.0f, 0.0f, 0.3f};
-	GLfloat spherePosition[3] = {1.0f, 1.0f, 1.0f};
+	GLfloat sphereControlsSliderColor[4] = {1.0f, 0.0f, 1.0f, 0.3f};
+	GLfloat spherePosition[3] = {3.8f, 0.0f, 0.0f};
 	GLfloat spherePositionSliderColor[4] = {1.0f, 0.0f, 0.0f, 0.3f};
 
 	GLfloat textureSelect = 0.0;
@@ -374,6 +394,7 @@ int main(void) {
 	guiContainer->addComponent(&reflectionColor[0], 3, 0.0f, 1.0f);
 	guiContainer->addComponent(&specularColor[0], 3, 0.0f, 1.0f);
 	guiContainer->addComponent(&diffuseColor[0], 3, 0.0f, 1.0f);
+	guiContainer->addComponent(&skyColor[0], 3, 0.0f, 1.0f, shadowSliderColor);
 	guiContainer->addComponent(&var1, 0.0f, 10.0f);
 	guiContainer->addComponent(&var2, 0.0f, 120.0f);
 	guiContainer->addComponent(&var3, 0.0f, 675.0f);
@@ -389,29 +410,35 @@ int main(void) {
 	//guiContainer->addComponent(&modelMatrixLight[3][2], -1000.0f, 1000.0f);
 	guiContainer->addComponent(&textureSelect, 0.0f, 3.0f);
 	guiContainer->addComponent(&dmapDepth, -10.0f, 10.0f);
+	
+	float startTime = (float) glfwGetTime();
 
-	glm::vec4 clearColorValue = glm::vec4(1.0f, 1.0f, 1.0f, 1.0);
+	glm::vec4 clearColorValue = glm::vec4(skyColor.r, skyColor.g, skyColor.b, 1.0);
 	float* clearDepthValue = new float(1.0f);
+	int animationFrame = 0;
+	float lastFrameTime, time;
+	lastFrameTime = time = startTime;
+
+	GLfloat currentTime;
+	do {
+		currentTime = (GLfloat) glfwGetTime();
+	} while(currentTime - startTime < 0.5f);
 
 	while(!glfwWindowShouldClose(window) && !terminated) {
+		clearColorValue = glm::vec4(skyColor.r, skyColor.g, skyColor.b, 1.0);
 		glfwPollEvents();
+        computeMatricesFromInputs(window, &viewMatrix, &player);
 
-		computeMatricesFromInputs(window, &viewMatrix, &player);
-
-
-		float time = (float) glfwGetTime();
+		time = (float) glfwGetTime();
 		texOffset.x = -time/20.0f;
 		texOffset.y = time/40.0f;
 
 		float sinValue = (sin(time)/4.0f + 1.25f);
 
-		wave.translate(-camera.translation);
-		wave.rotate(camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
-
 		/////////////////
 		//Camera Controls
-		//viewMatrix = glm::rotate(viewMatrix, camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
-		//viewMatrix = glm::translate(viewMatrix, camera.translation);
+		viewMatrix = glm::rotate(viewMatrix, camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
+		viewMatrix = glm::translate(viewMatrix, camera.translation);
 		reflectionViewMatrix = glm::rotate(reflectionViewMatrix, camera.rotation.x, glm::vec3(0.0, 1.0, 0.0));
 
 		glm::vec3 cameraReflection (camera.translation.x, -camera.translation.y, camera.translation.z);
@@ -438,7 +465,7 @@ int main(void) {
 		//Land
 		land.setVP(perspectiveMatrix*reflectionViewMatrix);
 		glUniformMatrix4fv(1, 1, GL_FALSE, &land.getMatrix()[0][0]);
-		land.render();
+		//land.render();
 
 		//Lighthouse
 		lighthouse.setVP(perspectiveMatrix*reflectionViewMatrix);
@@ -449,12 +476,6 @@ int main(void) {
 		monkey.setVP(perspectiveMatrix*reflectionViewMatrix);
 		glUniformMatrix4fv(1, 1, GL_FALSE, &monkey.getMatrix()[0][0]);
 		//monkey.render();
-
-		//Player
-		Model hold = player.getModel();
-		hold.setVP(perspectiveMatrix*reflectionViewMatrix);
-		glUniformMatrix4fv(1, 1, GL_FALSE, &hold.getMatrix()[0][0]);
-		hold.render();
 		
 		//Ship
 		ship.setVP(perspectiveMatrix*reflectionViewMatrix);
@@ -464,7 +485,12 @@ int main(void) {
 		//Room
 		room.setVP(perspectiveMatrix*reflectionViewMatrix);
 		glUniformMatrix4fv(1, 1, GL_FALSE, &room.getMatrix()[0][0]);
-		room.render();
+		//room.render();
+		
+		//PLY World
+		plyWorld.setVP(perspectiveMatrix*reflectionViewMatrix);
+		glUniformMatrix4fv(1, 1, GL_FALSE, &plyWorld.getMatrix()[0][0]);
+		plyWorld.renderPLY();
 
 		glDisable(GL_CLIP_DISTANCE0);
 
@@ -476,10 +502,10 @@ int main(void) {
 		glClearBufferfv(GL_DEPTH, 0, clearDepthValue);
 		glUseProgram(shadowProgram);
 
-		glm::vec3 lightInvDir = glm::vec3(shadowPos[0], shadowPos[1], shadowPos[2]);
+		glm::vec3 lightInvDir = glm::vec3(lightPos[0], lightPos[1], lightPos[2]);
 
 		//Compute the MVP matrix from the light's point of view
-		glm::mat4 depthProjectionMatrix = glm::ortho<float>(-10, 10, -10, 10, -10, 20);
+		glm::mat4 depthProjectionMatrix = glm::ortho<float>(-100, 100, -100, 100, -100, 200);
 		glm::mat4 depthViewMatrix = glm::lookAt(lightInvDir, glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 		glm::mat4 depthVP = depthProjectionMatrix * depthViewMatrix;
 
@@ -491,7 +517,7 @@ int main(void) {
 		
 		//Land
 		land.setVP(depthVP);
-		land.render();
+		//land.render();
 
 		//Lighthouse
 		lighthouse.setVP(depthVP);
@@ -499,11 +525,7 @@ int main(void) {
 		
 		//Monkey
 		monkey.setVP(depthVP);
-		monkey.render();
-
-		//Player
-		hold.setVP(perspectiveMatrix*viewMatrix);
-		hold.render();
+		//monkey.render();
 		
 		//Ship
 		ship.setVP(depthVP);
@@ -511,7 +533,11 @@ int main(void) {
 		
 		//Room
 		room.setVP(depthVP);
-		room.render();
+		//room.render();
+		
+		//PLY World
+		plyWorld.setVP(depthVP);
+		plyWorld.renderPLY();
 		
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -548,19 +574,13 @@ int main(void) {
 		land.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*land.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		land.render();
+		//land.render();
 
 		//Lighthouse
 		lighthouse.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*lighthouse.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		lighthouse.render();
-
-		//Player
-		hold.setVP(perspectiveMatrix*viewMatrix);
-		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*hold.getMatrix();
-		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		hold.render();
+		//lighthouse.render();
 		
 		//Monkey
 		monkey.setVP(perspectiveMatrix*viewMatrix);
@@ -578,10 +598,12 @@ int main(void) {
 		room.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*room.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		room.render();
+		//room.render();
+
+		/////Ply Files
 
 		glUseProgram(plyColorProgram);
-		glUniform3fv(5, 1, &mvpLightPosCorrect[0]);
+		glUniform3fv(5, 1, &lightPos[0]);
 		glUniform3fv(6, 1, &lightColor[0]);
 		glUniform1f(7, lightPower);
 		
@@ -596,15 +618,38 @@ int main(void) {
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*plyCube.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
 		glUniformMatrix4fv(8, 1, GL_FALSE, &plyCube.getMatrix()[0][0]);
-		plyCube.renderPLY();
+		//plyCube.renderPLY();
 		
 		//PLY Plane
 		plyPlane.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*plyPlane.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
 		glUniformMatrix4fv(8, 1, GL_FALSE, &plyPlane.getMatrix()[0][0]);
-		plyPlane.renderPLY();
+		//plyPlane.renderPLY();
+
+
+		////////////Render World
+
+		glUseProgram(causticsProgram);
+		glUniform3fv(5, 1, &lightPos[0]);
+		glUniform3fv(6, 1, &lightColor[0]);
+		glUniform1f(7, lightPower);
 		
+		glUniformMatrix4fv(9, 1, GL_FALSE, &viewMatrix[0][0]);
+		glUniform1f(10, bias);
+		glUniform2fv(11, 1, &texOffset[0]);
+		glUniform3fv(12, 1, &lightPos[0]);
+		
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+		
+		if((time - lastFrameTime) > 1.0f/15.0f) {
+			animationFrame++;
+			lastFrameTime = time;
+		}
+
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, waterCaustic[animationFrame%30]);
 		
 		//PLY World
 		plyWorld.setVP(perspectiveMatrix*viewMatrix);
@@ -613,26 +658,9 @@ int main(void) {
 		glUniformMatrix4fv(8, 1, GL_FALSE, &plyWorld.getMatrix()[0][0]);
 		plyWorld.renderPLY();
 
-		//Wave
-		glUseProgram(waveProgram);
-		glUniform3fv(5, 1, &mvpLightPosCorrect[0]);
-		glUniform3fv(6, 1, &lightColor[0]);
-		glUniform1f(7, lightPower);
-		glUniform1f(8, sphereControls[0]);
-		glUniform1f(9, sphereControls[1]);
 
-		glUniform1f(10, bias);
-		glUniform3fv(11, 1, &spherePosition[0]);
-		
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, depthMap);
 
-		wave.setVP(perspectiveMatrix*viewMatrix);
-		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*wave.getMatrix();
-		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-		wave.render();
-
-		glBindTexture(GL_TEXTURE_2D, 0);
+		/////Ply Files
 
 		//Water
 		glDepthMask(GL_FALSE);
@@ -658,6 +686,15 @@ int main(void) {
 		
 		glActiveTexture(GL_TEXTURE4);
 		glBindTexture(GL_TEXTURE_2D, waterNormalMap);
+		
+		glActiveTexture(GL_TEXTURE5);
+		glBindTexture(GL_TEXTURE_2D, worldDepthMap);
+
+		glActiveTexture(GL_TEXTURE6);
+		glBindTexture(GL_TEXTURE_2D, waterFoam);
+		
+		glActiveTexture(GL_TEXTURE7);
+		glBindTexture(GL_TEXTURE_2D, worldDepthMapFoam);
 
 		glBindVertexArray(vao);
 
@@ -685,10 +722,78 @@ int main(void) {
 		glUniform1f(uniforms.var5, var5);
 		glUniform1f(uniforms.var6, var6);
 
-		glDrawArraysInstanced(GL_PATCHES, 0, 4, 256*256);
+		glDrawArraysInstanced(GL_PATCHES, 0, 4, 128*128);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		
 		glDepthMask(GL_TRUE);
+		///End of Water
+		
+
+		
+		//Render Wave
+		glUseProgram(waveProgram);
+		glUniform3fv(5, 1, &lightPos[0]);
+		glUniform3fv(6, 1, &lightColor[0]);
+		glUniform1f(7, lightPower);
+		
+		glUniformMatrix4fv(9, 1, GL_FALSE, &viewMatrix[0][0]);
+		glUniform1f(10, bias);
+		glUniform2fv(11, 1, &texOffset[0]);
+		glUniform3fv(12, 1, &lightPos[0]);
+		glUniform1fv(13, 1, &sphereControls[0]);
+		glUniform1fv(14, 1, &sphereControls[1]);
+		glUniform3fv(15, 1, &spherePosition[0]);
+		glUniform3fv(16, 1, &skyColor[0]);
+
+		glm::vec2 waveTextureOffset = glm::vec2(-time/2, 0.0);
+		glUniform2fv(17, 1, &waveTextureOffset[0]);
+		
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+		
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, waveTexture);
+
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
+		
+		player.getModel().setVP(perspectiveMatrix*viewMatrix);
+		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*player.getModel().getMatrix();
+		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+		glUniformMatrix4fv(8, 1, GL_FALSE, &player.getModel().getMatrix()[0][0]);
+		player.getModel().renderPLY();
+
+      	glDisable(GL_CULL_FACE);
+
+		///Render Marbles
+		glUseProgram(plyUVProgram);
+		glUniform3fv(5, 1, &lightPos[0]);
+		glUniform3fv(6, 1, &lightColor[0]);
+		glUniform1f(7, lightPower);
+		
+		glUniformMatrix4fv(9, 1, GL_FALSE, &viewMatrix[0][0]);
+		glUniform1f(10, bias);
+		
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+		
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, marbleTexture);
+
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
+		
+		float marbleSin = (sin(time*2)/40.0f);
+		plyMarble.translate(glm::vec3(0.0f, marbleSin, 0.0f));
+
+		//PLY Marble
+		plyMarble.setVP(perspectiveMatrix*viewMatrix);
+		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*plyMarble.getMatrix();
+		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+		glUniformMatrix4fv(8, 1, GL_FALSE, &plyMarble.getMatrix()[0][0]);
+		plyMarble.renderPLY();
+
+		glDisable(GL_CULL_FACE);
 
 		//Light
 		glUseProgram(simpleProgram);
@@ -713,7 +818,7 @@ int main(void) {
 		//glUseProgram(texProgram);
 		
 		//glActiveTexture(GL_TEXTURE0);
-		//glBindTexture(GL_TEXTURE_2D, depthMap);
+		//glBindTexture(GL_TEXTURE_2D, worldDepthMap);
 
 		//glDrawArrays(GL_QUADS, 0, 4);
 
@@ -742,7 +847,8 @@ int main(void) {
 ImagePBM readNetpbmFile(GLchar * ppmFileName) {
 	ImagePBM imageStruct;
 
-	std::ifstream image(ppmFileName);
+	std::ifstream image;
+	image.open(ppmFileName, std::ios::binary | std::ios::in);
 
 	if(!image.is_open()) {
 		fprintf(stderr, "Image could not be opened");
@@ -767,13 +873,15 @@ ImagePBM readNetpbmFile(GLchar * ppmFileName) {
 	else if(netpbmFileType.compare("P6") == 0)
 		imageStruct.elements = 3;
 
-	imageStruct.data = new GLubyte[imageStruct.width*imageStruct.height*imageStruct.elements];
+	imageStruct.data = reinterpret_cast<GLubyte*>(malloc(sizeof(GLubyte)*imageStruct.width*imageStruct.height*imageStruct.elements));
 
 	line = "";
 	getline(image, line);
 
-	for(int i=0; i<imageStruct.width*imageStruct.height*imageStruct.elements; i++)
-		imageStruct.data[i] = (GLubyte)image.get();
+	//Read Elements
+	image.read(reinterpret_cast<char*>(imageStruct.data), sizeof(GLubyte)*imageStruct.width*imageStruct.height*imageStruct.elements);
+
+	image.close();
 
 	return imageStruct;
 }
@@ -792,6 +900,22 @@ GLuint createRTexture(GLchar * textureFileName) {
 	return colorMapID;
 }
 
+GLuint createRTextureClamped(GLchar * textureFileName) {
+	ImagePBM colorMap = readNetpbmFile(textureFileName);
+
+	GLuint colorMapID;
+	glGenTextures(1, &colorMapID);
+	glBindTexture(GL_TEXTURE_2D, colorMapID);
+
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, colorMap.width, colorMap.height);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorMap.width, colorMap.height, GL_RED, GL_UNSIGNED_BYTE, colorMap.data);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	delete [] colorMap.data;
+	return colorMapID;
+}
+
 GLuint createRGBTexture(GLchar * textureFileName) {
 	ImagePBM colorMap = readNetpbmFile(textureFileName);
 
@@ -801,6 +925,24 @@ GLuint createRGBTexture(GLchar * textureFileName) {
 
 	glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB8, colorMap.width, colorMap.height);
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorMap.width, colorMap.height, GL_RGB, GL_UNSIGNED_BYTE, colorMap.data);
+
+	delete [] colorMap.data;
+	return colorMapID;
+}
+
+GLuint createRGBTextureMipMapped(GLchar * textureFileName) {
+	ImagePBM colorMap = readNetpbmFile(textureFileName);
+
+	GLuint colorMapID;
+	glGenTextures(1, &colorMapID);
+	glBindTexture(GL_TEXTURE_2D, colorMapID);
+
+	glTexStorage2D(GL_TEXTURE_2D, 9, GL_RGB8, colorMap.width, colorMap.height);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorMap.width, colorMap.height, GL_RGB, GL_UNSIGNED_BYTE, colorMap.data);
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 
 	delete [] colorMap.data;
 	return colorMapID;
@@ -830,7 +972,7 @@ GLFWwindow* openGLInit(GLint width, GLint height, GLchar* windowTitle) {
 	glewInit();
 
 	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS);
+	glDepthFunc(GL_LEQUAL);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -841,37 +983,40 @@ GLFWwindow* openGLInit(GLint width, GLint height, GLchar* windowTitle) {
 
 	//glEnable(GL_CULL_FACE);
 	//glCullFace(GL_BACK);
+	
+	glEnable(GL_DEPTH_CLAMP);
 
 	return window;
 }
 
 void keyCallback (GLFWwindow * window, int key, int scancode, int action, int mods)
 {
-	/*if (action == GLFW_PRESS)
+
+	if (action == GLFW_PRESS)
 	{
 		if (key == GLFW_KEY_E || key == GLFW_KEY_RIGHT)
-			camera.rotation.x -= 0.02f;
+			camera.rotation.x -= ROTATIONSPEED;
 
 		else if (key == GLFW_KEY_Q || key == GLFW_KEY_LEFT)
-			camera.rotation.x += 0.02f;
+			camera.rotation.x += ROTATIONSPEED;
 
 		else if (key == GLFW_KEY_W)
-			camera.translation.z += 0.2f;
+			camera.translation.z += MOVESPEED;
 		
 		else if (key == GLFW_KEY_A)
-			camera.translation.x += 0.2f;
+			camera.translation.x += MOVESPEED;
 		
 		else if (key == GLFW_KEY_S)
-			camera.translation.z -= 0.2f;
+			camera.translation.z -= MOVESPEED;
 		
 		else if (key == GLFW_KEY_D)
-			camera.translation.x -= 0.2f;
+			camera.translation.x -= MOVESPEED;
 		
 		else if (key == GLFW_KEY_X)
-			camera.translation.y -= 0.2f;
+			camera.translation.y -= MOVESPEED;
 		
 		else if (key == GLFW_KEY_Z)
-			camera.translation.y += 0.2f;
+			camera.translation.y += MOVESPEED;
 
 		else if (key == GLFW_KEY_V)
 			texOffset.x += 0.1f;
@@ -931,7 +1076,6 @@ void keyCallback (GLFWwindow * window, int key, int scancode, int action, int mo
 			terminated = true;
 		}
 	}
-	*/
 }
 
 void mouseMoveCallback(GLFWwindow * window, double mouseX, double mouseY) {
@@ -1097,6 +1241,24 @@ GLuint createShaderFromCode (GLenum shaderType, std::string code)
 	return shaderInt;
 }
 
+void renderSplashScreen(GLuint program, GLuint texture, GLFWwindow* window) {
+	GLfloat* depth = new GLfloat(1.0f);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glViewport(0, 0, 1280, 720);
+	glClearBufferfv(GL_COLOR, 0, &glm::vec4(0.0, 0.0, 0.0, 1.0)[0]);
+	glClearBufferfv(GL_DEPTH, 0, depth);
+
+	glUseProgram(program);
+		
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture);
+
+	glDrawArrays(GL_QUADS, 0, 4);
+	
+	glfwSwapBuffers(window);
+    
+}
 void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Player* player)
 {
 	glm::mat4 ViewMatrix = *cameraView;

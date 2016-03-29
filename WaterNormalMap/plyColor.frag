@@ -4,13 +4,20 @@ layout (binding = 0) uniform sampler2D shadowMap;
 
 layout (location = 10) uniform float bias;
 
+uniform vec4 fogColor = vec4(0.7, 0.8, 0.9, 0.0);
+
 in FRAGMENT {
 	vec4 color;
 	vec4 shadowCoord;
 	float cos;
+	vec3 positionWorldSpace;
+	vec3 eyeDirectionCameraSpace;
+	vec3 lightDirectionCameraSpace;
+	vec3 normalCameraSpace;
+	vec3 eye_coord;
 } fragment;
 
-out vec4 colour;
+out vec4 color;
 
 void main () {
 	float visibility = 1.0;
@@ -23,5 +30,5 @@ void main () {
 		visibility = 0.5;
 	}
 
-	colour = vec4(visibility*fragment.color.rgb, fragment.color.a);
+	color = vec4(visibility*fragment.color.rgb, fragment.color.a);
 }
