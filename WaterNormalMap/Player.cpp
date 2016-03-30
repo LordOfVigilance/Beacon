@@ -10,13 +10,13 @@ Player::Player() : playerModel("Models/Monkey.obj"), sounds(NULL)
 {
 	position = glm::vec3(0.0f, 0.0f, 0.0f);
 	rotation = glm::vec2(0.0f, 3.14f);
-	scale = 1.0f;
+	scale = 2.0f;
 	speed = 5.0f;
 	speedMultiplier = 1.0f;
 	time = 5.0f;
 	direction = glm::vec3(-cos(0.0f) * sin(rotation.x), sin(0.0f), -cos(0.0f) * cos(rotation.x));
-	playerModel.scale(glm::vec3(scale, scale, scale));
 	playerModel.translate(position);
+	playerModel.scale(glm::vec3(scale, scale, scale));
 	playerModel.rotate(rotation.x, glm::vec3(0.0f, 1.0f, 0.0f));
 }
 
@@ -24,13 +24,13 @@ Player::Player(glm::vec3 positionIn, glm::vec2 rotationIn, Model modelIn, Sound*
 {
 	position = positionIn;
 	rotation = rotationIn;
-	scale = 1.5f;
+	scale = 2.0f;
 	speed = 7.0f;
 	speedMultiplier = 1.0f;
 	time = 5.0f;
 	direction = glm::vec3(-cos(0.0f) * sin(rotation.x), sin(0.0f), -cos(0.0f) * cos(rotation.x));
-	playerModel.scale(glm::vec3(scale, scale, scale));
 	playerModel.translate(position);
+	playerModel.scale(glm::vec3(scale, scale, scale));
 	playerModel.rotate(rotation.x - (3.14159265f/2.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 }
 

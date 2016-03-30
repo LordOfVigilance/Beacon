@@ -40,8 +40,8 @@ private:
 	Model playerModel;
 	glm::vec3 direction;
 
-	const float minSize = 1.5f;
-	const float maxSize = 4.0f;
+	const float minSize = 2.0f;
+	const float maxSize = 3.0f;
 
 	Sound* sounds;
 

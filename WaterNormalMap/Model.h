@@ -14,7 +14,8 @@ enum {
 	WAVEFORM,
 	PLY,
 	PLYMALLOC,
-	PLYUVMALLOC
+	PLYUVMALLOC,
+	PLYUVMALLOCINDEXED
 };
 
 struct DaeGeom {
@@ -28,6 +29,7 @@ class Model
 public:
 	Model(GLchar*);
 	Model(GLchar*, int);
+	Model(GLchar*, GLint, GLfloat*);
 	~Model(void);
 
 	void scale(glm::vec3);
@@ -36,9 +38,11 @@ public:
 
 	void render();
 	void renderPLY();
+	void renderPLYInstanced(GLsizei);
 
 	GLuint getVAO();
 	GLuint getVBO();
+	GLuint getInstanceBuffer();
 	GLuint getVIB();
 	GLuint getVertexCount();
 	glm::mat4x4 getMatrix();
@@ -55,6 +59,7 @@ public:
 private:	
 	GLuint vao;
 	GLuint vbo;
+	GLuint instanceBuffer;
 	GLuint vertexIndicesBuffer;
 
 	GLuint vertexCount;

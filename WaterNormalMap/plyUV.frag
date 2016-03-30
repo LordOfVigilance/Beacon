@@ -60,5 +60,5 @@ void main () {
 	vec3 textureColor = texture(textureMap, fragment.uv.xy, 0).rgb;
 	vec3 textureComponent = textureColor * 1.4;
 
-	color = vec4(visibility*(fragmentColor + textureComponent), (1 - textureColor.r)*0.5 + 0.5);
+	color = vec4((fragmentColor + textureComponent), (1 - textureColor.r)*0.5 + 0.5);
 }

@@ -23,6 +23,6 @@ void main () {
 		visibility = 0.5;
 	}
 
-	colour = visibility*fragment.color;
+	colour = fragment.color;
 	//colour = vec4(visibility*vec3(0.0, 0.0, 1.0), 1.0);
 }

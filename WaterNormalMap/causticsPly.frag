@@ -42,8 +42,8 @@ void main () {
 	float causticColor = clamp(texture( waterTexture, waterTextureCoord, 0).r*waterDepth, 0.0, 1.0)/2;
 
 	if(fragment.positionWorldSpace.y < 0.0) {
-		color = vec4(visibility*vec3(fragment.color.r + causticColor*0.5, fragment.color.g + causticColor*0.7, fragment.color.b + causticColor), fragment.color.a);
+		color = vec4(vec3(fragment.color.r + causticColor*0.5, fragment.color.g + causticColor*0.7, fragment.color.b + causticColor), fragment.color.a);
 	}
 	else
-		color = vec4(visibility*fragment.color.rgb, fragment.color.a);// + causticColor;
+		color = vec4(fragment.color.rgb, fragment.color.a);// + causticColor;
 }

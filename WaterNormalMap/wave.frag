@@ -52,5 +52,5 @@ void main () {
 
 	float alphaFeather = clamp(fragment.positionWorldSpace.y, 0.0, 1.0);
 
-	color = vec4( visibility*fragment.color.rgb + waveTextureColor, alphaFeather);
+	color = vec4(fragment.color.rgb + waveTextureColor, alphaFeather);
 }

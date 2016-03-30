@@ -60,7 +60,7 @@ struct {
 
 struct TVAAI {
 	// Player New Direction Angle
-	float playerAngle = 0;
+	int playerCollision = -1;
 	// Camera colliding?
 	bool camColliding = false;
 	// Collectible Index
@@ -74,7 +74,7 @@ void checkForHover(double, double);
 
 std::vector<DreamClickable*> buttonList;
 
-glm::vec2 texOffset(1.5, 0.0);
+glm::vec2 windDirection(1.5, 0.0);
 
 GLFWwindow* openGLInit(GLint, GLint, GLchar*);
 void keyCallback (GLFWwindow*, int, int, int, int);
@@ -93,11 +93,16 @@ void renderSplashScreen(GLuint, GLuint, GLFWwindow*);
 void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Player* player);
 TVAAI checkCollision(glm::vec3 playerPos/*, float playerRadius*/, glm::vec3 playerDirection, glm::vec3 camPos, ImagePBM heightMap/*, Collectible[] sphereList*/);
 float regularToPixel(float cartCoord);
+void markMarble(GLint*, GLfloat*);
+void readMarblePositions(GLint*, GLfloat*);
+void save(glm::vec2);
+glm::vec2 load();
 
 void printFunction();
 bool locked = true;
 bool lockLock = false;
 bool muteLock = false;
+bool marbleLock = false;
 Sound sounds = Sound();
 glm::vec3 currentDirection = glm::vec3(0.0f,0.0f,0.0f);
 const float PI = 3.14159265f;
@@ -106,6 +111,10 @@ DreamClickable* buttonPressed;
 bool mousePressed = false;
 DreamContainer* guiContainer;
 bool drawButtons = true;
+
+glm::vec2 cameraPosition(0.0, 0.0);
+GLint marbleCount = 0;
+GLfloat* marblePositions = new GLfloat[1000];
 
 int main(void) {
 
@@ -147,7 +156,7 @@ int main(void) {
 	GLuint buttonProgram = createProgram("button.vert", NULL, NULL, NULL, "button.frag");
 	GLuint shadowProgram = createProgram("shadowDepth.vert", NULL, NULL, NULL, "shadowDepth.frag");
 	GLuint reflectionProgram = createProgram("reflection.vert", NULL, NULL, NULL, "reflection.frag");
-
+	GLuint uiProgram = createProgram("uiTexture.vert", NULL, NULL, NULL, "uiTexture.frag");
 
 	sounds.loadSounds(1);
 
@@ -302,6 +311,7 @@ int main(void) {
 	GLuint waterFoam = createRTexture("Textures/foamDark.pbm");
 	GLuint marbleTexture = createRGBTexture("Textures/marble.pbm");
 	GLuint waveTexture = createRGBTextureMipMapped("Textures/waveTexture.pbm");
+	GLuint circleTexture = createRGBTexture("Textures/UI/circle40.pbm");
 
 	GLuint waterCaustic[30];
 	for(int i=0; i<30; i++) {
@@ -321,7 +331,8 @@ int main(void) {
 	Model plyCube("Models/cube.ply", PLYMALLOC);
 	Model plyWave("Models/wave.ply", PLYMALLOC);
 	Model plyWorld("Models/WorldColor.ply", PLYMALLOC);
-	Model plyMarble("Models/marble2.ply", PLYUVMALLOC);
+	readMarblePositions(&marbleCount, marblePositions);
+	Model plyMarble("Models/marble2.ply", marbleCount, marblePositions);
 	
 	//Model cube("Models/cube.dae", COLLADAE);
 	//Model land("Models/Land.dae", COLLADAE);
@@ -330,8 +341,10 @@ int main(void) {
 	//Model ship("Models/Ship.dae", COLLADAE);
 
 	camera.rotation = glm::vec2();
+    
+    glm::vec2 startPosition = load();
 	
-    Player player = Player(glm::vec3(0, -0.1f, 0), glm::vec2(3.14f, 0.0f), Model("Models/wave.ply", PLYMALLOC), &sounds);
+    Player player = Player(glm::vec3(startPosition.x, -0.1f, startPosition.y), glm::vec2(3.14f, 0.0f), Model("Models/wave.ply", PLYMALLOC), &sounds);
 	camera.translation = player.getPosition() + glm::vec3(0.0f, 2.0f, 4.0f);
     
     
@@ -428,16 +441,24 @@ int main(void) {
 
 	glm::vec4 clearColorValue = glm::vec4(skyColor.r, skyColor.g, skyColor.b, 1.0);
 	float* clearDepthValue = new float(1.0f);
+    float* clearShadowValue = new float(0.0f);
 	int animationFrame = 0;
-	float lastFrameTime, time;
-	lastFrameTime = time = startTime;
+	int windAngle = 0;
+	int newWindAngle;
+	float windRadians;
+	float windStrength = dmapDepth;
+	float newWindStrength;
+	float lastFrameTime, lastWindTime, time;
+	float timeUntilWindChange = 0;
+	lastWindTime = lastFrameTime = time = startTime;
 
 	GLfloat currentTime;
 	do {
 		currentTime = (GLfloat) glfwGetTime();
 	} while(currentTime - startTime < 0.5f);
-
+	int trackLengthLeft = 20000;
 	while(!glfwWindowShouldClose(window) && !terminated) {
+
 		clearColorValue = glm::vec4(skyColor.r, skyColor.g, skyColor.b, 1.0);
 		glfwPollEvents();
         computeMatricesFromInputs(window, &viewMatrix, &player);
@@ -445,8 +466,22 @@ int main(void) {
 
 
 		time = (float) glfwGetTime();
-		texOffset.x = -time/20.0f;
-		texOffset.y = time/40.0f;
+		if(time - lastWindTime > timeUntilWindChange) {
+			lastWindTime = time;
+			timeUntilWindChange = rand()%40 + 20;
+			newWindAngle = rand()%60 - 30;
+			newWindStrength = rand()%2000/100.0f - 10.0;
+		}
+
+		if(time - lastWindTime < 20) {
+			windRadians = (newWindAngle*(time - lastWindTime)/20 + windAngle)/(2.0*3.1415926);
+			//dmapDepth = newWindStrength*(time - lastWindTime)/20 + windStrength*(1 - (time - lastWindTime)/20);
+		} else {
+			windStrength = dmapDepth;
+		}
+
+		windDirection.x += glm::sin(windRadians)/1000;
+		windDirection.y += glm::cos(windRadians)/1000;
 
 		float sinValue = (sin(time)/4.0f + 1.25f);
 
@@ -532,7 +567,7 @@ int main(void) {
 								  0.0, 0.0, 0.5, 0.0,
 								  0.5, 0.5, 0.5, 1.0);
 		glm::mat4 depthBiasMVP = depthBiasMatrix*depthVP;
-		
+		/*
 		//Land
 		land.setVP(depthVP);
 		//land.render();
@@ -558,7 +593,7 @@ int main(void) {
 		plyWorld.renderPLY();
 		
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+        */
 		////////////////////////
 		//End of Shadow Buffer
 		////////////////////////
@@ -655,7 +690,7 @@ int main(void) {
 		
 		glUniformMatrix4fv(9, 1, GL_FALSE, &viewMatrix[0][0]);
 		glUniform1f(10, bias);
-		glUniform2fv(11, 1, &texOffset[0]);
+		glUniform2fv(11, 1, &windDirection[0]);
 		glUniform3fv(12, 1, &lightPos[0]);
 		
 		glActiveTexture(GL_TEXTURE0);
@@ -719,7 +754,7 @@ int main(void) {
 		glUniform1f(uniforms.dmapDepth, dmapDepth);
 		glUniform1f(uniforms.sinValue, sinValue);
 		glUniformMatrix4fv(uniforms.mvp, 1, GL_FALSE, &mvpWater[0][0]);
-		glUniform2fv(uniforms.texOffset, 1, &texOffset[0]);
+		glUniform2fv(uniforms.texOffset, 1, &windDirection[0]);
 		
 		glUniform1f(uniforms.lightPower, lightPower);
 		glUniform3fv(uniforms.lightPos, 1, &mvpLightPos[0]);
@@ -756,7 +791,7 @@ int main(void) {
 		
 		glUniformMatrix4fv(9, 1, GL_FALSE, &viewMatrix[0][0]);
 		glUniform1f(10, bias);
-		glUniform2fv(11, 1, &texOffset[0]);
+		glUniform2fv(11, 1, &windDirection[0]);
 		glUniform3fv(12, 1, &lightPos[0]);
 		glUniform1fv(13, 1, &sphereControls[0]);
 		glUniform1fv(14, 1, &sphereControls[1]);
@@ -810,7 +845,11 @@ int main(void) {
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*plyMarble.getMatrix();
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
 		glUniformMatrix4fv(8, 1, GL_FALSE, &plyMarble.getMatrix()[0][0]);
-		plyMarble.renderPLY();
+		
+        glBindBuffer(GL_ARRAY_BUFFER, plyMarble.getInstanceBuffer());
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLfloat)*2*marbleCount, marblePositions);
+
+		plyMarble.renderPLYInstanced(marbleCount);
 
 		glDisable(GL_CULL_FACE);
 
@@ -820,6 +859,7 @@ int main(void) {
 		glUniformMatrix4fv(0, 1, GL_FALSE, &mvpLight[0][0]);
 		glUniform4fv(1, 1, &mvpLightPosCorrect[0]);
 		glDrawArrays(GL_POINTS, 0, 1);
+
 
 		//Draw Framebuffer Texture To Screen
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -855,7 +895,35 @@ int main(void) {
 				}
 			}
 		}
+        
+        
+        //UI
+		glUseProgram(uiProgram);
+		
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, circleTexture);
 
+		glUniform2iv(0, 1, &glm::ivec2(windowWidth, windowHeight)[0]);
+		glUniform2fv(1, 1, &glm::vec2(20, 20)[0]);
+
+		
+		int trackTime = 20000;
+
+		trackLengthLeft -= 50;
+		if(trackLengthLeft < 0)
+			trackLengthLeft = trackTime;
+		
+		int layerCount = 16;
+		for(int layerIndex = 0; layerIndex < layerCount; layerIndex++) {
+			if(layerIndex == layerCount - 1) {
+				float size = trackLengthLeft*20.0/trackTime;
+				glUniform2fv(1, 1, &glm::vec2(size, size)[0]);
+			}
+
+			glUniform2iv(2, 1, &glm::ivec2(1260, 20 + layerIndex*30)[0]);
+			glDrawArrays(GL_QUADS, 0, 4);
+		}
+        
 		glfwSwapBuffers(window);
 	}
 
@@ -1015,87 +1083,16 @@ void keyCallback (GLFWwindow * window, int key, int scancode, int action, int mo
 	/*
 	if (action == GLFW_PRESS)
 	{
-		if (key == GLFW_KEY_E || key == GLFW_KEY_RIGHT)
-			camera.rotation.x -= ROTATIONSPEED;
-
-		else if (key == GLFW_KEY_Q || key == GLFW_KEY_LEFT)
-			camera.rotation.x += ROTATIONSPEED;
-
-		else if (key == GLFW_KEY_W)
-			camera.translation.z += MOVESPEED;
-		
-		else if (key == GLFW_KEY_A)
-			camera.translation.x += MOVESPEED;
-		
-		else if (key == GLFW_KEY_S)
-			camera.translation.z -= MOVESPEED;
-		
-		else if (key == GLFW_KEY_D)
-			camera.translation.x -= MOVESPEED;
-		
-		else if (key == GLFW_KEY_X)
-			camera.translation.y -= MOVESPEED;
-		
-		else if (key == GLFW_KEY_Z)
-			camera.translation.y += MOVESPEED;
-
-		else if (key == GLFW_KEY_V)
-			texOffset.x += 0.1f;
-
-		else if (key == GLFW_KEY_C)
-			texOffset.x -= 0.1f;
-
-		else if (key == GLFW_KEY_B)
-			drawButtons = !drawButtons;
-		
-		if (key ==  GLFW_KEY_ESCAPE)
-		{
-			glfwTerminate();
-			terminated = true;
+		if (key == GLFW_KEY_H) {
+			if (marbleCount < 500) {
+				marbleCount++;
+				marblePositions[(marbleCount - 1) * 2] = player->getPosition().x;
+				marblePositions[(marbleCount - 1) * 2 + 1] = -player->getPosition().z;
+				markMarble(&marbleCount, marblePositions);
+			}
 		}
-	}
 
-	
-	if (action == GLFW_RELEASE)
-	{
-		if (key == GLFW_KEY_E || key == GLFW_KEY_RIGHT)
-			camera.rotation.x = 0.00f;
 
-		else if (key == GLFW_KEY_Q || key == GLFW_KEY_LEFT)
-			camera.rotation.x = 0.00f;
-
-		else if (key == GLFW_KEY_W)
-			camera.translation.z = 0.0f;
-		
-		else if (key == GLFW_KEY_A)
-			camera.translation.x = 0.0f;
-		
-		else if (key == GLFW_KEY_S)
-			camera.translation.z = 0.0f;
-		
-		else if (key == GLFW_KEY_D)
-			camera.translation.x = 0.0f;
-		
-		else if (key == GLFW_KEY_X)
-			camera.translation.y = 0.0f;
-		
-		else if (key == GLFW_KEY_Z)
-			camera.translation.y = 0.0f;
-
-		else if (key == GLFW_KEY_V)
-			texOffset.x += 0.1f;
-
-		else if (key == GLFW_KEY_C)
-			texOffset.x -= 0.1f;
-
-		else if (key == GLFW_KEY_B)
-			drawButtons = !drawButtons;
-		
-		if (key ==  GLFW_KEY_ESCAPE)
-		{
-			glfwTerminate();
-			terminated = true;
-		}
 	}*/
 }
 
@@ -1280,6 +1277,53 @@ void renderSplashScreen(GLuint program, GLuint texture, GLFWwindow* window) {
 	glfwSwapBuffers(window);
     
 }
+
+void markMarble(GLint* marbleCount, GLfloat* marblePositions) {
+	std::fstream marbleFile;
+	marbleFile.open("marblePositions.dat", std::ios::binary | std::ios::out);
+
+	marbleFile.write((char*)marbleCount, sizeof(GLint));
+	marbleFile.write((char*)marblePositions, sizeof(GLfloat)*2*(*marbleCount));
+
+	marbleFile.close();
+}
+
+void readMarblePositions(GLint* marbleCount, GLfloat* marblePositions) {
+	std::fstream marbleFile;
+
+	marbleFile.open("marblePositions.dat", std::ios::binary | std::ios::in);
+
+	marbleFile.read((char*) marbleCount, sizeof(int));
+	marbleFile.read((char*) marblePositions, sizeof(GLfloat)*2*(*marbleCount));
+
+	marbleFile.close();
+}
+
+void save(glm::vec2 position) {
+	std::fstream saveFile;
+
+	saveFile.open("saveFile.save", std::ios::binary | std::ios::out);
+
+	saveFile.write((char*) &position, sizeof(glm::vec2));
+	
+	saveFile.close();
+}
+
+glm::vec2 load() {
+	glm::vec2* startPosition = new glm::vec2();
+	std::fstream saveFile;
+
+	saveFile.open("saveFile.save", std::ios::binary | std::ios::in);
+
+	saveFile.read((char*) startPosition, sizeof(glm::vec2));
+	saveFile.close();
+
+	return *startPosition;
+}
+
+
+
+
 void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Player* player)
 {
 	glm::mat4 ViewMatrix = *cameraView;
@@ -1386,6 +1430,10 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) {
 		player->scalePlayerUp();
 	}
+	if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
+	{
+		save(glm::vec2(player->getPosition().x, player->getPosition().z));
+	}
 	if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) {
 		sounds.stop();
 	}
@@ -1423,6 +1471,25 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	{
 		lockLock = false;
 	}
+    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS)
+    {
+		if (!marbleLock)
+		{
+			marbleLock = true;
+			if (marbleCount < 500) {
+				marbleCount++;
+				marblePositions[(marbleCount - 1) * 2] = player->getPosition().x;
+				marblePositions[(marbleCount - 1) * 2 + 1] = -player->getPosition().z;
+				markMarble(&marbleCount, marblePositions);
+			}
+		}
+		
+    }
+	if (glfwGetKey(window, GLFW_KEY_H) == GLFW_RELEASE)
+	{
+		marbleLock = false;
+
+	}
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
 		glfwTerminate();
 		terminated = true;
@@ -1449,7 +1516,7 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	}
 
 	player->translate(player->getDirection() * deltaTime * player->getSpeed());
-	camera.translation = (player->getPosition() + ((-currentDirection * 10.0f))) + (glm::vec3(0.0f, 7.0f, 0.0f));
+	camera.translation = (player->getPosition() + ((-currentDirection * 7.0f))) + (glm::vec3(0.0f, 5.0f, 0.0f));
 
 
 	float FoV = initialFoV;// - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this. It's a bit too complicated for this beginner's tutorial, so it's disabled instead.
@@ -1679,216 +1746,216 @@ TVAAI checkCollision(glm::vec3 playerPos/*, float playerRadius*/, glm::vec3 play
 		if ((playAngle >= -30 && playAngle < 30) /*|| (playAngle >= 330 && playAngle <= 360)*/) {
 			if ((gridArray[5] == 1) || (gridArray[4] == 1)) {
 				//middle
-				//ans.playerAngle = PI;
+				ans.playerCollision = 0;
 				std::cout << "Front collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[1] == 1) {
 				//left
-				//ans.playerAngle = -PI / 6;
+				ans.playerCollision = 1;
 				std::cout << "Left collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[7] == 1) {
 				//right
-				//ans.playerAngle = PI / 6;
+				ans.playerCollision = 2;
 				std::cout << "Right collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[2] == 1) {
 				//left corner
-				//ans.playerAngle = -PI / 3;
+				ans.playerCollision = 3;
 				std::cout << "Left corner collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[8] == 1) {
 				//right corner
-				//ans.playerAngle = PI / 3;
+				ans.playerCollision = 4;
 				std::cout << "Right corner collision at angle " << playAngle << "." << std::endl;
 			}
 		}
 		else if ((playAngle >= 30 && playAngle < 60)) {
 			if ((gridArray[2] == 1) || (gridArray[4] == 1)) {
 				//middle (corner)
-				//ans.playerAngle = PI;
+				ans.playerCollision = 0;
 				std::cout << "Front collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[0] == 1) {
 				//left (corner)
-				ans.playerAngle = -PI / 6;
+				ans.playerCollision = 1;
 				std::cout << "Left collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[8] == 1) {
 				//right (corner)
-				ans.playerAngle = PI / 6;
+				ans.playerCollision = 2;
 				std::cout << "Right collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[1] == 1) {
 				//left corner (side)
-				//ans.playerAngle = -PI / 3;
+				ans.playerCollision = 3;
 				std::cout << "Left corner collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[5] == 1) {
 				//right corner (side)
-				//ans.playerAngle = PI / 3;
+				ans.playerCollision = 4;
 				std::cout << "Right corner collision at angle " << playAngle << "." << std::endl;
 			}
 		}
 		else if ((playAngle >= 60 && playAngle < 120)) {
 			if ((gridArray[1] == 1) || (gridArray[4] == 1)) {
 				//middle
-				//ans.playerAngle = PI;
+				ans.playerCollision = 0;
 				std::cout << "Front collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[3] == 1) {
 				//left
-				//ans.playerAngle = -PI / 6;
+				ans.playerCollision = 1;
 				std::cout << "Left collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[5] == 1) {
 				//right
-				//ans.playerAngle = PI / 6;
+				ans.playerCollision = 2;
 				std::cout << "Right collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[0] == 1) {
 				//left corner
-				//ans.playerAngle = -PI / 3;
+				ans.playerCollision = 3;
 				std::cout << "Left corner collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[2] == 1) {
 				//right corner
-				//ans.playerAngle = PI / 3;
+				ans.playerCollision = 4;
 				std::cout << "Right corner collision at angle " << playAngle << "." << std::endl;
 			}
 		}
 		else if ((playAngle >= 120 && playAngle < 150)) {
 			if ((gridArray[0] == 1) || (gridArray[4] == 1)) {
 				//middle (corner)
-				//ans.playerAngle = PI;
+				ans.playerCollision = 0;
 				std::cout << "Front collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[6] == 1) {
 				//left (corner)
-				//ans.playerAngle = -PI / 6;
+				ans.playerCollision = 1;
 				std::cout << "Left collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[2] == 1) {
 				//right (corner)
-				//ans.playerAngle = PI / 6;
+				ans.playerCollision = 2;
 				std::cout << "Right collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[3] == 1) {
 				//left corner (side)
-				//ans.playerAngle = -PI / 3;
+				ans.playerCollision = 3;
 				std::cout << "Left corner collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[1] == 1) {
 				//right corner (side)
-				//ans.playerAngle = PI / 3;
+				ans.playerCollision = 4;
 				std::cout << "Right corner collision at angle " << playAngle << "." << std::endl;
 			}
 		}
 		else if ((playAngle >= 150 && playAngle <= 180) || (playAngle >= -180 && playAngle < -150)) {
 			if ((gridArray[3] == 1) || (gridArray[4] == 1)) {
 				//middle
-				//ans.playerAngle = PI;
+				ans.playerCollision = 0;
 				std::cout << "Front collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[7] == 1) {
 				//left
-				//ans.playerAngle = -PI / 6;
+				ans.playerCollision = 1;
 				std::cout << "Left collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[1] == 1) {
 				//right
-				//ans.playerAngle = PI / 6;
+				ans.playerCollision = 2;
 				std::cout << "Right collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[6] == 1) {
 				//left corner
-				//ans.playerAngle = -PI / 3;
+				ans.playerCollision = 3;
 				std::cout << "Left corner collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[0] == 1) {
 				//right corner
-				//ans.playerAngle = PI / 3;
+				ans.playerCollision = 4;
 				std::cout << "Right corner collision at angle " << playAngle << "." << std::endl;
 			}
 		}
 		else if ((playAngle >= -150 && playAngle < -120)) {
 			if ((gridArray[6] == 1) || (gridArray[4] == 1)) {
 				//middle (corner)
-				//ans.playerAngle = PI;
+				ans.playerCollision = 0;
 				std::cout << "Front collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[8] == 1) {
 				//left (corner)
-				//ans.playerAngle = -PI / 6;
+				ans.playerCollision = 1;
 				std::cout << "Left collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[0] == 1) {
 				//right (corner)
-				//ans.playerAngle = PI / 6;
+				ans.playerCollision = 2;
 				std::cout << "Right collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[7] == 1) {
 				//left corner (side)
-				//ans.playerAngle = -PI / 3;
+				ans.playerCollision = 3;
 				std::cout << "Left corner collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[3] == 1) {
 				//right corner (side)
-				//ans.playerAngle = PI / 3;
+				ans.playerCollision = 4;
 				std::cout << "Right corner collision at angle " << playAngle << "." << std::endl;
 			}
 		}
 		else if ((playAngle >= -120 && playAngle < -60)) {
 			if ((gridArray[7] == 1) || (gridArray[4] == 1)) {
 				//middle
-				//ans.playerAngle = PI;
+				ans.playerCollision = 0;
 				std::cout << "Front collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[5] == 1) {
 				//left
-				//ans.playerAngle = -PI / 6;
+				ans.playerCollision = 1;
 				std::cout << "Left collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[3] == 1) {
 				//right
-				//ans.playerAngle = PI / 6;
+				ans.playerCollision = 2;
 				std::cout << "Right collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[8] == 1) {
 				//left corner
-				//ans.playerAngle = -PI / 3;
+				ans.playerCollision = 3;
 				std::cout << "Left corner collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[6] == 1) {
 				//right corner
-				//ans.playerAngle = PI / 3;
+				ans.playerCollision = 4;
 				std::cout << "Right corner collision at angle " << playAngle << "." << std::endl;
 			}
 		}
 		else { // Between -30 and -60
 			if ((gridArray[8] == 1) || (gridArray[4] == 1)) {
 				//middle (corner)
-				//ans.playerAngle = PI;
+				ans.playerCollision = 0;
 				std::cout << "Front collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[2] == 1) {
 				//left (corner)
-				//ans.playerAngle = -PI / 6;
+				ans.playerCollision = 1;
 				std::cout << "Left collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[6] == 1) {
 				//right (corner)
-				//ans.playerAngle = PI / 6;
+				ans.playerCollision = 2;
 				std::cout << "Right collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[5] == 1) {
 				//left corner (side)
-				//ans.playerAngle = -PI / 3;
+				ans.playerCollision = 3;
 				std::cout << "Left corner collision at angle " << playAngle << "." << std::endl;
 			}
 			else if (gridArray[7] == 1) {
 				//right corner (side)
-				//ans.playerAngle = PI / 3;
+				ans.playerCollision = 4;
 				std::cout << "Right corner collision at angle " << playAngle << "." << std::endl;
 			}
 		}
@@ -2003,6 +2070,6 @@ TVAAI checkCollision(glm::vec3 playerPos/*, float playerRadius*/, glm::vec3 play
 
 float regularToPixel(float cartCoord) {
 
-	return (float)(((((cartCoord + (1200)) / (2400)) /*+ 0.5*/) * 1024));
+	return (float)(((((cartCoord + (1280)) / (2560)) /*+ 0.5*/) * 1024));
 
 }

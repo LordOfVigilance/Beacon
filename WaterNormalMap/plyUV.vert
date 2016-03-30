@@ -3,6 +3,7 @@
 layout (location = 0) in vec4 positionModelSpace;
 layout (location = 1) in vec3 uv;
 layout (location = 2) in vec3 normalModelSpace;
+layout (location = 11) in vec2 instancePosition;
 
 layout (location = 3) uniform mat4 depthBiasMVP;
 layout (location = 4) uniform mat4 mvp;
@@ -22,7 +23,8 @@ out VERTEX {
 } vertex;
 
 void main(void) {
-	gl_Position = mvp * vec4(positionModelSpace.xyz, 1.0);
+	vec3 vertexPosition = vec3(positionModelSpace.x + instancePosition.x, positionModelSpace.y, positionModelSpace.z - instancePosition.y);
+	gl_Position = mvp * vec4(vertexPosition, 1.0);
 
 	vertex.positionWorldSpace = (modelMatrix*positionModelSpace).xyz;
 

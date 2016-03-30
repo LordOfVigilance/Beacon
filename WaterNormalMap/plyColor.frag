@@ -30,5 +30,5 @@ void main () {
 		visibility = 0.5;
 	}
 
-	color = vec4(visibility*fragment.color.rgb, fragment.color.a);
+	color = vec4(fragment.color.rgb, fragment.color.a);
 }

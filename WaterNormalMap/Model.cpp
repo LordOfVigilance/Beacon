@@ -253,6 +253,68 @@ Model::Model(GLchar* fileName, int fileType) : matrix(1.0f) {
 	}
 }
 
+Model::Model(GLchar* fileName, GLint instanceCount, GLfloat* instancePositions) : matrix(1.0f) {
+	GLuint offset = 0;
+	
+	GLfloat* verticesMalloc = NULL;
+	GLfloat* verticesUVMalloc = NULL;
+	GLfloat* normalsMalloc = NULL;
+	GLuint* indexMalloc = NULL;
+	int verticesCount;
+	int facesCount;
+
+	loadPlyUVIndexedMalloc(fileName, &verticesMalloc, &verticesUVMalloc, &normalsMalloc, &indexMalloc, &verticesCount, &facesCount);
+
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*verticesCount*10, NULL, GL_STATIC_DRAW);
+
+	glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(GLfloat)*verticesCount*4, verticesMalloc);
+	offset += sizeof(GLfloat)*verticesCount*4;
+	
+	glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(GLfloat)*verticesCount*3, verticesUVMalloc);
+	offset += sizeof(GLfloat)*verticesCount*3;
+	
+	glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(GLfloat)*verticesCount*3, normalsMalloc);
+
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)(sizeof(GLfloat)*verticesCount*4));
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)(sizeof(GLfloat)*verticesCount*7));
+	
+	glGenBuffers(1, &instanceBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, instanceBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*500*2, NULL, GL_DYNAMIC_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLfloat)*instanceCount*2, instancePositions);
+	glVertexAttribPointer(11, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(2);
+	glEnableVertexAttribArray(11);
+
+	glVertexAttribDivisor(0, 0);
+	glVertexAttribDivisor(1, 0);
+	glVertexAttribDivisor(2, 0);
+	glVertexAttribDivisor(11, 1);
+
+	glGenBuffers(1, &vertexIndicesBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexIndicesBuffer);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*facesCount*3, indexMalloc, GL_STATIC_DRAW);
+
+	vertexCount = facesCount*3;
+		
+	free(verticesMalloc);
+	free(verticesUVMalloc);
+	free(normalsMalloc);
+	free(indexMalloc);
+}
+
+
+
 bool Model::loadColladaeIndexed(const char * colladaeFileName, DaeGeom* positions, DaeGeom* normals, DaeGeom* indices) {
 	tinyxml2::XMLDocument doc;
 	doc.LoadFile(colladaeFileName);
@@ -726,6 +788,14 @@ void Model::renderPLY() {
 	glDrawElements(GL_TRIANGLES, vertexCount, GL_UNSIGNED_INT, (void *) 0);
 }
 
+void Model::renderPLYInstanced(GLsizei instanceCount) {	
+	glBindVertexArray (vao);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexIndicesBuffer);
+	glUniformMatrix4fv(4, 1, GL_FALSE, &mvp[0][0]);
+
+	glDrawElementsInstanced(GL_TRIANGLES, vertexCount, GL_UNSIGNED_INT, (void *) 0, instanceCount);
+}
+
 void Model::scale(glm::vec3 vector) {
 	matrix = glm::scale(matrix, vector);
 }
@@ -744,6 +814,10 @@ GLuint Model::getVAO() {
 
 GLuint Model::getVBO() {
 	return vbo;
+}
+
+GLuint Model::getInstanceBuffer() {
+	return instanceBuffer;
 }
 
 GLuint Model::getVIB() {
