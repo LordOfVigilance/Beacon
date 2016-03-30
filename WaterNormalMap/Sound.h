@@ -13,7 +13,9 @@ private:
 	ISoundEngine* mEngine;
 	ISoundEngine* sEngine;
 	vector<ISoundSource*> sources;
+	vector<ISoundSource*> beaconSources;
 	vector<ISound*> music;
+	vector<ISound*> beacons;
 	ISoundSource* drop;
 	ISoundSource* bgWater;
 	ISoundSource* grow;
@@ -24,12 +26,26 @@ public:
 	Sound();
 	~Sound();
 
-	void loadSounds(int x);
+	int loadSounds(int x);
 
 	void play();
+
+	void addBeacon(int num, float posx, float posy, float posz, float dist);
+
+	void playBeacon(int num);
+
+	void stopBeacon(int num);
+
+	void updatePosition(float posx, float posy, float posz, float lookx, float looky, float lookz);
 
 	void stop();
 
 	void stopAll();
+
+	void setMaster(ik_f32 x);
+
+	void pause(bool x);
+
+	void mute(bool x);
 };
 

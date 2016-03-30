@@ -13,5 +13,8 @@ void main(){
 	//float colorR = texture( myTextureSampler, tc, 0).r;
     //color = vec4(colorR, colorR, colorR, 1.0);
 
-	color = texture(myTextureSampler, vec2(tc.s, -tc.t), 0);
+	vec3 textureColor = texture(myTextureSampler, vec2(tc.s, -tc.t)).rgb;
+	float alpha = 1.0;
+
+	color = vec4(textureColor, (1 - textureColor.r)*0.2);
 }

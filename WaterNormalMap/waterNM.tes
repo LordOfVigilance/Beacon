@@ -42,8 +42,8 @@ void main(void) {
 	vec4 point = mix(point2, point1, gl_TessCoord.y);
 	tesOut.worldPosition = point;
 
-	float worldDepthValue = 1.5*(-0.33 + texture(worldDepthMap, tesOut.worldPosition.xz/2560 + 0.5, 0).r);
-	point.y += sinValue*((texture(texDisplacement, textureCoord).r-0.5)*dmap_depth)*worldDepthValue;
+	float worldDepthValue = clamp(1.5*(-0.33 + texture(worldDepthMap, tesOut.worldPosition.xz/2560 + 0.5, 0).r), 0.0, 0.7);
+	point.y += sinValue*((texture(texDisplacement, textureCoord).r-0.5)*dmap_depth)*worldDepthValue*1.5;
 
 	gl_Position = mvp*point;
 	tesOut.textureCoord = textureCoord;

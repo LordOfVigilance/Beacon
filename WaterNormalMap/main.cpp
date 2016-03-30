@@ -91,7 +91,7 @@ GLuint createRGBTexture(GLchar *);
 GLuint createRGBTextureMipMapped(GLchar *);
 void renderSplashScreen(GLuint, GLuint, GLFWwindow*);
 void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Player* player);
-TVAAI checkCollision(glm::vec3 playerPos/*, float playerRadius*/, glm::vec3 playerDirection, glm::vec3 camPos, ImagePBM heightMap/*, Collectible[] sphereList*/);
+TVAAI checkCollision(glm::vec3, glm::vec3, glm::vec3, ImagePBM, GLfloat*, GLuint);
 float regularToPixel(float cartCoord);
 void markMarble(GLint*, GLfloat*);
 void readMarblePositions(GLint*, GLfloat*);
@@ -158,8 +158,9 @@ int main(void) {
 	GLuint reflectionProgram = createProgram("reflection.vert", NULL, NULL, NULL, "reflection.frag");
 	GLuint uiProgram = createProgram("uiTexture.vert", NULL, NULL, NULL, "uiTexture.frag");
 
-	sounds.loadSounds(1);
-
+	int currentSoundLayers = 0;
+	int soundsLayers = sounds.loadSounds(2);
+	std::cout << soundsLayers << std::endl;
 	int width;
 	int height;
 	glfwGetWindowSize(window, &width, &height);
@@ -219,6 +220,8 @@ int main(void) {
 	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 	glTexParameterfv(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_BORDER_COLOR, &glm::vec4(1.0, 0.0, 1.0, 1.0)[0]);
 
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+	
 	GLuint frameBufferDepthTextureName;
 	glGenTextures(1, &frameBufferDepthTextureName);
 	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, frameBufferDepthTextureName);
@@ -400,7 +403,7 @@ int main(void) {
 	GLfloat bias = 0.003f;
 	GLfloat shadowPos[3] = {10.0f, 10.0f, 3.6f};
 	GLfloat shadowSliderColor[4] = {0.0f, 0.0f, 1.0f, 0.3f};
-	GLfloat sphereControls[2] = {1.0f, 1.0f};
+	GLfloat sphereControls[2] = {1.0f, -6.4f};
 	GLfloat sphereControlsSliderColor[4] = {1.0f, 0.0f, 1.0f, 0.3f};
 	GLfloat spherePosition[3] = {3.8f, 0.0f, 0.0f };
 	GLfloat spherePositionSliderColor[4] = {1.0f, 0.0f, 0.0f, 0.3f};
@@ -459,6 +462,7 @@ int main(void) {
 	int trackLengthLeft = 20000;
 	while(!glfwWindowShouldClose(window) && !terminated) {
 
+
 		clearColorValue = glm::vec4(skyColor.r, skyColor.g, skyColor.b, 1.0);
 		glfwPollEvents();
         computeMatricesFromInputs(window, &viewMatrix, &player);
@@ -500,8 +504,41 @@ int main(void) {
 		//End of Camera Controls
 		////////////////
 
-		checkCollision(player.getPosition(), player.getDirection(), camera.translation, worldDepthMapImg);
+		TVAAI collisions = checkCollision(player.getPosition(), player.getDirection(), camera.translation, worldDepthMapImg, marblePositions, marbleCount);
+		if (collisions.index != -1)
+		{
+			currentSoundLayers++;
+			marblePositions[collisions.index * 2] = 10000.0f;
+			trackLengthLeft = time;
+			sounds.play();
+			if (currentSoundLayers < 16) {
+				sphereControls[1] += 12.8 / soundsLayers;
+				dmapDepth -= -10.0 / soundsLayers;
+			}
+		}//printf("A collision %u\n", collisions.index);
+		
+		if (collisions.playerCollision == 0)
+		{
+			player.translate(-player.getDirection()*1.0f,false);
 
+		}
+		else if (collisions.playerCollision == 1)
+		{
+			player.translate(-player.getDirection()*1.0f,false);
+		}
+		else if (collisions.playerCollision == 2)
+		{
+			player.translate(-player.getDirection()*1.0f,false);
+		}
+		else if (collisions.playerCollision == 3)
+		{
+			player.translate(-player.getDirection()*1.0f,false);
+		}
+		else if (collisions.playerCollision == 4)
+		{
+			player.translate(-player.getDirection()*1.0f,false);
+
+		}
 
 		glm::vec4 mvpLightPos = lightPos*mvpLight;
 		glm::vec4 mvpEyePos = glm::vec4(eye, 1.0)*mvpLight;
@@ -891,7 +928,7 @@ int main(void) {
 					glUniform2fv(0, 1, &renderable->getSize()[0]);
 					glUniform2fv(1, 1, &renderable->getOffset()[0]);
 					glUniform4fv(2, 1, &renderable->getColor()[0]);
-					glDrawArrays(GL_QUADS, 0, 4);
+					//glDrawArrays(GL_QUADS, 0, 4);
 				}
 			}
 		}
@@ -907,14 +944,20 @@ int main(void) {
 		glUniform2fv(1, 1, &glm::vec2(20, 20)[0]);
 
 		
-		int trackTime = 20000;
+		int trackTime = 15000;
 
-		trackLengthLeft -= 50;
-		if(trackLengthLeft < 0)
-			trackLengthLeft = trackTime;
+		if (time - trackLengthLeft > 15) {
+			trackLengthLeft = time;
+			currentSoundLayers--;
+			sounds.stop();
+			if (currentSoundLayers > 0) {
+				dmapDepth += 10.0f / soundsLayers;
+				sphereControls[1] -= 12.8 / soundsLayers;
+			}
+		}
 		
 		int layerCount = 16;
-		for(int layerIndex = 0; layerIndex < layerCount; layerIndex++) {
+		for(int layerIndex = 0; layerIndex < currentSoundLayers; layerIndex++) {
 			if(layerIndex == layerCount - 1) {
 				float size = trackLengthLeft*20.0/trackTime;
 				glUniform2fv(1, 1, &glm::vec2(size, size)[0]);
@@ -1352,7 +1395,8 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	int width;
 	int height;
 	glfwGetWindowSize(window, &width, &height);
-	//glfwSetCursorPos(window, width / 2, height / 2);
+	
+	glfwSetCursorPos(window, width / 2, height / 2);
 
 	if (!locked)
 	{
@@ -1515,7 +1559,7 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 		currentDirection = direction;
 	}
 
-	player->translate(player->getDirection() * deltaTime * player->getSpeed());
+	player->translate(player->getDirection() * deltaTime * player->getSpeed(), true);
 	camera.translation = (player->getPosition() + ((-currentDirection * 7.0f))) + (glm::vec3(0.0f, 5.0f, 0.0f));
 
 
@@ -1534,12 +1578,12 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	lastTime = currentTime;
 }
 
-TVAAI checkCollision(glm::vec3 playerPos/*, float playerRadius*/, glm::vec3 playerDirection, glm::vec3 camPos, ImagePBM heightMap/*, Collectible[] sphereList*/) {
+TVAAI checkCollision(glm::vec3 playerPos/*, float playerRadius*/, glm::vec3 playerDirection, glm::vec3 camPos, ImagePBM heightMap, GLfloat* sphereList, GLuint count) {
 
 	TVAAI ans;
 	int gridArray[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	bool playerCol = false;
-
+	float radius = 1.0f;
 	/** Check player against heightMap **/
 
 	// Get player position in pixel coordinates
@@ -2045,24 +2089,24 @@ TVAAI checkCollision(glm::vec3 playerPos/*, float playerRadius*/, glm::vec3 play
 
 	// Iterate through the spheres, check against player
 
-	/*for (int i = 0; i < sphereList.size(); i++) {
+	for (int i = 0; i < count; i++) {
 
 	// Calculate distance between centers of spheres
 
-	glm::vec3 vecDist(playerPos - sphereList[i].getPosition());
-	float fDist = vecDist.length;
+		glm::vec3 spherePosition = glm::vec3(sphereList[i*2], 0.0f, -sphereList[i*2 + 1] + 1.0f);
+		glm::vec3 vecDist(playerPos - spherePosition);
+		float fDist = glm::length(vecDist);
 
 	// Calculate sum of radii
 
-	float fRadiiSum(playerRadius + sphereList[i].getRadius());
+		float fRadiiSum(5.0f);
 
 	// Check for collision
-	if (fDist <= fRadiiSum) {
-	ans.index = i;
-	break;
+		if (fDist <= fRadiiSum) {
+			ans.index = i;
+			break;
+		}
 	}
-
-	}*/
 
 	return ans;
 

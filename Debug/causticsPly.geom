@@ -16,7 +16,6 @@ in VERTEX {
 	vec3 lightDirectionCameraSpace;
 	vec3 normalCameraSpace;
 	vec3 eye_coord;
-	vec3 positionModelSpace;
 } vertex[];
 
 out FRAGMENT {
@@ -25,10 +24,7 @@ out FRAGMENT {
 	float cos;
 	vec3 positionWorldSpace;
 	vec3 eyeDirectionCameraSpace;
-	vec3 lightDirectionCameraSpace;
-	vec3 normalCameraSpace;
 	vec3 eye_coord;
-	vec3 positionModelSpace;
 } fragment;
 
 void main (void) {
@@ -36,7 +32,7 @@ void main (void) {
 	// Material properties
 	vec3 materialDiffuseColor = vertex[0].color;
 	vec3 materialAmbientColor = vec3(0.8,0.8,0.8)*materialDiffuseColor;
-	vec3 materialSpecularColor = vec3(1.0, 1.0, 1.0);
+	vec3 materialSpecularColor = vec3(0.3,0.3,0.3);
 	
 	// Distance to the light
 	float distanceToLight = length(lightPositionWorldSpace - vertex[0].positionWorldSpace);
@@ -49,7 +45,7 @@ void main (void) {
 	vec3 reflectionDirection = reflect(-lightDirection, normal);
 	float cosAlpha = clamp( dot( eyeDirection, reflectionDirection), 0,1 );
 	
-	vec3 color = materialAmbientColor + materialDiffuseColor*lightColor*lightPower*cosTheta + materialSpecularColor*lightColor*0.2*pow(cosAlpha,2);
+	vec3 color = materialAmbientColor + materialDiffuseColor*lightColor*lightPower*cosTheta + materialSpecularColor*lightColor*lightPower*pow(cosAlpha,5);
 	
 	int i;
 	for (i = 0; i < gl_in.length; i++) {
@@ -61,10 +57,7 @@ void main (void) {
 		
 		fragment.positionWorldSpace = vertex[i].positionWorldSpace;
 		fragment.eyeDirectionCameraSpace = vertex[i].eyeDirectionCameraSpace;
-		fragment.lightDirectionCameraSpace = vertex[i].lightDirectionCameraSpace;
-		fragment.normalCameraSpace = vertex[i].normalCameraSpace;
 		fragment.eye_coord = vertex[i].eye_coord;
-		fragment.positionModelSpace = vertex[i].positionModelSpace;
 
 		EmitVertex();
 	}

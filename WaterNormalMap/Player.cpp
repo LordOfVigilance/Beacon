@@ -13,7 +13,7 @@ Player::Player() : playerModel("Models/Monkey.obj"), sounds(NULL)
 	scale = 2.0f;
 	speed = 5.0f;
 	speedMultiplier = 1.0f;
-	time = 5.0f;
+	time = 15.0f;
 	direction = glm::vec3(-cos(0.0f) * sin(rotation.x), sin(0.0f), -cos(0.0f) * cos(rotation.x));
 	playerModel.translate(position);
 	playerModel.scale(glm::vec3(scale, scale, scale));
@@ -27,7 +27,7 @@ Player::Player(glm::vec3 positionIn, glm::vec2 rotationIn, Model modelIn, Sound*
 	scale = 2.0f;
 	speed = 7.0f;
 	speedMultiplier = 1.0f;
-	time = 5.0f;
+	time = 15.0f;
 	direction = glm::vec3(-cos(0.0f) * sin(rotation.x), sin(0.0f), -cos(0.0f) * cos(rotation.x));
 	playerModel.translate(position);
 	playerModel.scale(glm::vec3(scale, scale, scale));
@@ -55,13 +55,14 @@ glm::vec2 Player::getRotation()
 }
 
 void Player::timeUpdate(float timeIn)
-{
+{/*
 	time -= timeIn;
 	if (time <= 0.0f)
 	{
 		scalePlayerDown();
-		time = 5.0f;
+		time = 15.0f;
 	}
+	*/
 }
 
 void Player::rotatePlayer(float radians)
@@ -84,7 +85,7 @@ void Player::rotatePlayer(float radians)
 }
 
 void Player::scalePlayerUp()
-{
+{/*
 	float lastScale = scale;
 	scale += 0.05f;
 	if (scale > maxSize)
@@ -93,18 +94,19 @@ void Player::scalePlayerUp()
 	}
 	else
 	{
-		time = 5.0f;
+		time = 15.0f;
 		sounds->play();
 		speed += 0.5f;
 	}
 	float scaleDown = 1.0f / lastScale;
 	playerModel.scale(glm::vec3(scaleDown, scaleDown, scaleDown));
 	playerModel.scale(glm::vec3(scale, scale, scale));
-	
+	*/
 }
 
 void Player::scalePlayerDown()
 {
+	/*
 	float lastScale = scale;
 	scale -= 0.05f;
 	if (scale < minSize)
@@ -120,13 +122,18 @@ void Player::scalePlayerDown()
 	float scaleUp = 1.0f / lastScale;
 	playerModel.scale(glm::vec3(scaleUp, scaleUp, scaleUp));
 	playerModel.scale(glm::vec3(scale, scale, scale));
+	*/
 }
 
-void Player::translate(glm::vec3 translation)
+void Player::translate(glm::vec3 translation, bool forward)
 {
 	position -= translation;
+	float magnitude = sqrt(pow(translation.x, 2) + pow(translation.z, 2));
 
-	float magnitude = sqrt(pow(translation.x,2) + pow(translation.z, 2));
+	if (!forward)
+	{
+		magnitude = -magnitude;
+	}
 	float inverseScale = 1.0f / scale;
 	playerModel.scale(glm::vec3(inverseScale, inverseScale, inverseScale));
 	playerModel.translate((glm::vec3(1.0f,0.0f,0.0f) * magnitude));

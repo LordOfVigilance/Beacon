@@ -20,7 +20,7 @@ public:
 	void rotatePlayer(float radians);
 	void scalePlayerUp();
 	void scalePlayerDown();
-	void translate(glm::vec3 translation);
+	void translate(glm::vec3 translation, bool forward);
 	Model getModel();
 	float getSpeed();
 	float getScale();
