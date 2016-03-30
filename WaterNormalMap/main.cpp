@@ -465,7 +465,44 @@ int main(void) {
 
 		clearColorValue = glm::vec4(skyColor.r, skyColor.g, skyColor.b, 1.0);
 		glfwPollEvents();
-        computeMatricesFromInputs(window, &viewMatrix, &player);
+        
+
+		TVAAI collisions = checkCollision(player.getPosition(), player.getDirection(), camera.translation, worldDepthMapImg, marblePositions, marbleCount);
+		if (collisions.index != -1)
+		{
+			currentSoundLayers++;
+			marblePositions[collisions.index * 2] = 10000.0f;
+			trackLengthLeft = time;
+			sounds.play();
+			if (currentSoundLayers < 16) {
+				sphereControls[1] += 12.8 / soundsLayers;
+				dmapDepth -= -10.0 / soundsLayers;
+			}
+		}//printf("A collision %u\n", collisions.index);
+
+		if (collisions.playerCollision == 0)
+		{
+			player.translate(-player.getDirection()*1.0f, false);
+
+		}
+		else if (collisions.playerCollision == 1)
+		{
+			player.translate(-player.getDirection()*1.0f, false);
+		}
+		else if (collisions.playerCollision == 2)
+		{
+			player.translate(-player.getDirection()*1.0f, false);
+		}
+		else if (collisions.playerCollision == 3)
+		{
+			player.translate(-player.getDirection()*1.0f, false);
+		}
+		else if (collisions.playerCollision == 4)
+		{
+			player.translate(-player.getDirection()*1.0f, false);
+
+		}
+		computeMatricesFromInputs(window, &viewMatrix, &player);
 
 
 
@@ -503,42 +540,6 @@ int main(void) {
 
 		//End of Camera Controls
 		////////////////
-
-		TVAAI collisions = checkCollision(player.getPosition(), player.getDirection(), camera.translation, worldDepthMapImg, marblePositions, marbleCount);
-		if (collisions.index != -1)
-		{
-			currentSoundLayers++;
-			marblePositions[collisions.index * 2] = 10000.0f;
-			trackLengthLeft = time;
-			sounds.play();
-			if (currentSoundLayers < 16) {
-				sphereControls[1] += 12.8 / soundsLayers;
-				dmapDepth -= -10.0 / soundsLayers;
-			}
-		}//printf("A collision %u\n", collisions.index);
-		
-		if (collisions.playerCollision == 0)
-		{
-			player.translate(-player.getDirection()*1.0f,false);
-
-		}
-		else if (collisions.playerCollision == 1)
-		{
-			player.translate(-player.getDirection()*1.0f,false);
-		}
-		else if (collisions.playerCollision == 2)
-		{
-			player.translate(-player.getDirection()*1.0f,false);
-		}
-		else if (collisions.playerCollision == 3)
-		{
-			player.translate(-player.getDirection()*1.0f,false);
-		}
-		else if (collisions.playerCollision == 4)
-		{
-			player.translate(-player.getDirection()*1.0f,false);
-
-		}
 
 		glm::vec4 mvpLightPos = lightPos*mvpLight;
 		glm::vec4 mvpEyePos = glm::vec4(eye, 1.0)*mvpLight;
@@ -2093,7 +2094,7 @@ TVAAI checkCollision(glm::vec3 playerPos/*, float playerRadius*/, glm::vec3 play
 
 	// Calculate distance between centers of spheres
 
-		glm::vec3 spherePosition = glm::vec3(sphereList[i*2], 0.0f, -sphereList[i*2 + 1] + 1.0f);
+		glm::vec3 spherePosition = glm::vec3(sphereList[i*2], 0.0f, -sphereList[i*2 + 1] - 7.5f);
 		glm::vec3 vecDist(playerPos - spherePosition);
 		float fDist = glm::length(vecDist);
 

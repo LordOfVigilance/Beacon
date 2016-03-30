@@ -25,7 +25,7 @@ Player::Player(glm::vec3 positionIn, glm::vec2 rotationIn, Model modelIn, Sound*
 	position = positionIn;
 	rotation = rotationIn;
 	scale = 2.0f;
-	speed = 7.0f;
+	speed = 10.0f;
 	speedMultiplier = 1.0f;
 	time = 15.0f;
 	direction = glm::vec3(-cos(0.0f) * sin(rotation.x), sin(0.0f), -cos(0.0f) * cos(rotation.x));
