@@ -58,6 +58,15 @@ struct {
 	glm::vec3 translation;
 } camera;
 
+struct TVAAI {
+	// Player New Direction Angle
+	float playerAngle = 0;
+	// Camera colliding?
+	bool camColliding = false;
+	// Collectible Index
+	int index = -1;
+};
+
 const float ROTATIONSPEED = 0.015f;
 const float MOVESPEED = 2.0f;
 
@@ -82,6 +91,8 @@ GLuint createRGBTexture(GLchar *);
 GLuint createRGBTextureMipMapped(GLchar *);
 void renderSplashScreen(GLuint, GLuint, GLFWwindow*);
 void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Player* player);
+TVAAI checkCollision(glm::vec3 playerPos/*, float playerRadius*/, glm::vec3 playerDirection, glm::vec3 camPos, ImagePBM heightMap/*, Collectible[] sphereList*/);
+float regularToPixel(float cartCoord);
 
 void printFunction();
 bool locked = true;
@@ -283,6 +294,8 @@ int main(void) {
 	GLuint waterTexture = createRTexture("Textures/Water.pbm");
 	GLuint waterNormalMap = createRGBTexture("Textures/Water_NRM.pbm");
 	GLuint fiberTexture = createRTexture("Textures/colorMap.pbm");
+
+	ImagePBM worldDepthMapImg = readNetpbmFile("Textures/worldDepth.pbm");
 	
 	GLuint worldDepthMap = createRTextureClamped("Textures/worldDepthFull.pbm");
 	GLuint worldDepthMapFoam = createRTextureClamped("Textures/worldDepthFoam.pbm");
@@ -429,6 +442,8 @@ int main(void) {
 		glfwPollEvents();
         computeMatricesFromInputs(window, &viewMatrix, &player);
 
+
+
 		time = (float) glfwGetTime();
 		texOffset.x = -time/20.0f;
 		texOffset.y = time/40.0f;
@@ -449,6 +464,9 @@ int main(void) {
 
 		//End of Camera Controls
 		////////////////
+
+		checkCollision(player.getPosition(), player.getDirection(), camera.translation, worldDepthMapImg);
+
 
 		glm::vec4 mvpLightPos = lightPos*mvpLight;
 		glm::vec4 mvpEyePos = glm::vec4(eye, 1.0)*mvpLight;
@@ -1431,7 +1449,8 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	}
 
 	player->translate(player->getDirection() * deltaTime * player->getSpeed());
-	camera.translation = (player->getPosition() + ((-currentDirection * 6.0f))) + glm::vec3(0.0f, 3.0f, 0.0f);
+	camera.translation = (player->getPosition() + ((-currentDirection * 10.0f))) + (glm::vec3(0.0f, 7.0f, 0.0f));
+
 
 	float FoV = initialFoV;// - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this. It's a bit too complicated for this beginner's tutorial, so it's disabled instead.
 
@@ -1446,4 +1465,544 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 
 	// For the next frame, the "last time" will be "now"
 	lastTime = currentTime;
+}
+
+TVAAI checkCollision(glm::vec3 playerPos/*, float playerRadius*/, glm::vec3 playerDirection, glm::vec3 camPos, ImagePBM heightMap/*, Collectible[] sphereList*/) {
+
+	TVAAI ans;
+	int gridArray[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	bool playerCol = false;
+
+	/** Check player against heightMap **/
+
+	// Get player position in pixel coordinates
+	float playerPixelX = regularToPixel(playerPos.x);
+	float playerPixelZ = regularToPixel(playerPos.z);
+
+	int playerArrayPos = (int)(floor(playerPixelZ)*heightMap.width + floor(playerPixelX));
+
+	// Get player angle
+	float playAngle = atan2(playerDirection.z, playerDirection.x);
+	playAngle = playAngle * 180 / PI;
+	//std::cout << playAngle << std::endl;
+
+	// Start checking for collisions between player and terrain
+	/*if (heightMap.data[playerArrayPos] == 255) {
+		//std::cout << "There's some sort of collision." << std::endl;
+		gridArray[4] = 1;
+		playerCol = true;
+	}*/
+	if (floor(playerPixelX) < (heightMap.width - 1)) {
+		if (heightMap.data[playerArrayPos + 1] == 255) {
+			//std::cout << "There's some sort of collision." << std::endl;
+			gridArray[5] = 1;
+			playerCol = true;
+		}
+	}
+	if (floor(playerPixelX) > 0) {
+		if (heightMap.data[playerArrayPos - 1] == 255) {
+			//std::cout << "There's some sort of collision." << std::endl;
+			gridArray[3] = 1;
+			playerCol = true;
+		}
+	}
+	// Need to do an if to check for height (whether it's first or last row, as that affects things)
+	if (floor(playerPixelZ) > 0) {
+		if (heightMap.data[playerArrayPos - heightMap.height] == 255) { // Should be width?
+																		//std::cout << "There's some sort of collision." << std::endl;
+			gridArray[1] = 1;
+			playerCol = true;
+		}
+		if (floor(playerPixelX) < (heightMap.width - 1)) {
+			if (heightMap.data[playerArrayPos - heightMap.height + 1] == 255) {
+				//std::cout << "There's some sort of collision." << std::endl;
+				gridArray[2] = 1;
+				playerCol = true;
+			}
+		}
+		if (floor(playerPixelX) > 0) {
+			if (heightMap.data[playerArrayPos - heightMap.height - 1] == 255) {
+				//std::cout << "There's some sort of collision." << std::endl;
+				gridArray[0] = 1;
+				playerCol = true;
+			}
+		}
+	}
+
+	if (floor(playerPixelZ) < (heightMap.height - 1)) {
+		if (heightMap.data[playerArrayPos + heightMap.height] == 255) {
+			//std::cout << "There's some sort of collision." << std::endl;
+			gridArray[7] = 1;
+			playerCol = true;
+		}
+		if (floor(playerPixelX) < (heightMap.width - 1)) {
+			if (heightMap.data[playerArrayPos + heightMap.height + 1] == 255) {
+				//std::cout << "There's some sort of collision." << std::endl;
+				gridArray[8] = 1;
+				playerCol = true;
+			}
+		}
+		if (floor(playerPixelX) > 0) {
+			if (heightMap.data[playerArrayPos + heightMap.height - 1] == 255) {
+				//std::cout << "There's some sort of collision." << std::endl;
+				gridArray[6] = 1;
+				playerCol = true;
+			}
+		}
+	}
+	// If expanded radius, check more pixels around the player
+	//if (playerRadius > 1) {
+	if (floor(playerPixelZ) > 0) {
+		if (floor(playerPixelX) > 1) {
+			if (heightMap.data[playerArrayPos - heightMap.height - 2] == 255) {
+				//std::cout << "There's some sort of collision." << std::endl;
+				gridArray[0] = 1;
+				playerCol = true;
+			}
+		}
+		if (floor(playerPixelX) < (heightMap.width - 2)) {
+			if (heightMap.data[playerArrayPos - heightMap.height + 2] == 255) {
+				//std::cout << "There's some sort of collision." << std::endl;
+				gridArray[2] = 1;
+				playerCol = true;
+			}
+		}
+	}
+
+	if (floor(playerPixelZ) < (heightMap.height - 1)) {
+		if (floor(playerPixelX) < (heightMap.width - 2)) {
+			if (heightMap.data[playerArrayPos + heightMap.height + 2] == 255) {
+				//std::cout << "There's some sort of collision." << std::endl;
+				gridArray[8] = 1;
+				playerCol = true;
+			}
+		}
+		if (floor(playerPixelX) > 1) {
+			if (heightMap.data[playerArrayPos + heightMap.height - 2] == 255) {
+				//std::cout << "There's some sort of collision." << std::endl;
+				gridArray[6] = 1;
+				playerCol = true;
+			}
+		}
+	}
+
+	if (floor(playerPixelX) < (heightMap.width - 2)) {
+		if (heightMap.data[playerArrayPos + 2] == 255) {
+			//std::cout << "There's some sort of collision." << std::endl;
+			gridArray[5] = 1;
+			playerCol = true;
+		}
+	}
+	if (floor(playerPixelX) > 1) {
+		if (heightMap.data[playerArrayPos - 2] == 255) {
+			//std::cout << "There's some sort of collision." << std::endl;
+			gridArray[3] = 1;
+			playerCol = true;
+		}
+	}
+
+	/*if (floor(playerPixelZ) > 1) {
+	if (heightMap.data[playerArrayPos - (heightMap.height * 2)] == 255) {
+	//std::cout << "There's some sort of collision." << std::endl;
+	gridArray[1] = 1;
+	playerCol = true;
+	}
+	if (floor(playerPixelX) < (heightMap.width - 1)) {
+	if (heightMap.data[playerArrayPos - (heightMap.height * 2) + 1] == 255) {
+	//std::cout << "There's some sort of collision." << std::endl;
+	gridArray[2] = 1;
+	playerCol = true;
+	}
+	}
+	if (floor(playerPixelX) < (heightMap.width - 2)) {
+	if (heightMap.data[playerArrayPos - (heightMap.height * 2) + 2] == 255) {
+	//std::cout << "There's some sort of collision." << std::endl;
+	gridArray[2] = 1;
+	playerCol = true;
+	}
+	}
+	if (floor(playerPixelX) > 0) {
+	if (heightMap.data[playerArrayPos - (heightMap.height * 2) - 1] == 255) {
+	//std::cout << "There's some sort of collision." << std::endl;
+	gridArray[0] = 1;
+	playerCol = true;
+	}
+	}
+	if (floor(playerPixelX) > 1) {
+	if (heightMap.data[playerArrayPos - (heightMap.height * 2) - 2] == 255) {
+	//std::cout << "There's some sort of collision." << std::endl;
+	gridArray[0] = 1;
+	playerCol = true;
+	}
+	}
+	}
+
+	if (floor(playerPixelZ) < (heightMap.height - 2)) {
+	if (heightMap.data[playerArrayPos + (heightMap.height * 2)] == 255) {
+	//std::cout << "There's some sort of collision." << std::endl;
+	gridArray[7] = 1;
+	playerCol = true;
+	}
+	if (floor(playerPixelX) < (heightMap.width - 1)) {
+	if (heightMap.data[playerArrayPos + (heightMap.height * 2) + 1] == 255) {
+	//std::cout << "There's some sort of collision." << std::endl;
+	gridArray[8] = 1;
+	playerCol = true;
+	}
+	}
+	if (floor(playerPixelX) < (heightMap.width - 2)) {
+	if (heightMap.data[playerArrayPos + (heightMap.height * 2) + 2] == 255) {
+	//std::cout << "There's some sort of collision." << std::endl;
+	gridArray[8] = 1;
+	playerCol = true;
+	}
+	}
+	if (floor(playerPixelX) > 0) {
+	if (heightMap.data[playerArrayPos + (heightMap.height * 2) - 1] == 255) {
+	//std::cout << "There's some sort of collision." << std::endl;
+	gridArray[6] = 1;
+	playerCol = true;
+	}
+	}
+	if (floor(playerPixelX) > 1) {
+	if (heightMap.data[playerArrayPos + (heightMap.height * 2) - 2] == 255) {
+	//std::cout << "There's some sort of collision." << std::endl;
+	gridArray[6] = 1;
+	playerCol = true;
+	}
+	}
+	}*/
+	//}
+
+	// If direction vector angle is within a certain range, check to see which angle to pass back for whichever pixel is colliding.
+	if (playerCol) {
+		if ((playAngle >= -30 && playAngle < 30) /*|| (playAngle >= 330 && playAngle <= 360)*/) {
+			if ((gridArray[5] == 1) || (gridArray[4] == 1)) {
+				//middle
+				//ans.playerAngle = PI;
+				std::cout << "Front collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[1] == 1) {
+				//left
+				//ans.playerAngle = -PI / 6;
+				std::cout << "Left collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[7] == 1) {
+				//right
+				//ans.playerAngle = PI / 6;
+				std::cout << "Right collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[2] == 1) {
+				//left corner
+				//ans.playerAngle = -PI / 3;
+				std::cout << "Left corner collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[8] == 1) {
+				//right corner
+				//ans.playerAngle = PI / 3;
+				std::cout << "Right corner collision at angle " << playAngle << "." << std::endl;
+			}
+		}
+		else if ((playAngle >= 30 && playAngle < 60)) {
+			if ((gridArray[2] == 1) || (gridArray[4] == 1)) {
+				//middle (corner)
+				//ans.playerAngle = PI;
+				std::cout << "Front collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[0] == 1) {
+				//left (corner)
+				ans.playerAngle = -PI / 6;
+				std::cout << "Left collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[8] == 1) {
+				//right (corner)
+				ans.playerAngle = PI / 6;
+				std::cout << "Right collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[1] == 1) {
+				//left corner (side)
+				//ans.playerAngle = -PI / 3;
+				std::cout << "Left corner collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[5] == 1) {
+				//right corner (side)
+				//ans.playerAngle = PI / 3;
+				std::cout << "Right corner collision at angle " << playAngle << "." << std::endl;
+			}
+		}
+		else if ((playAngle >= 60 && playAngle < 120)) {
+			if ((gridArray[1] == 1) || (gridArray[4] == 1)) {
+				//middle
+				//ans.playerAngle = PI;
+				std::cout << "Front collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[3] == 1) {
+				//left
+				//ans.playerAngle = -PI / 6;
+				std::cout << "Left collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[5] == 1) {
+				//right
+				//ans.playerAngle = PI / 6;
+				std::cout << "Right collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[0] == 1) {
+				//left corner
+				//ans.playerAngle = -PI / 3;
+				std::cout << "Left corner collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[2] == 1) {
+				//right corner
+				//ans.playerAngle = PI / 3;
+				std::cout << "Right corner collision at angle " << playAngle << "." << std::endl;
+			}
+		}
+		else if ((playAngle >= 120 && playAngle < 150)) {
+			if ((gridArray[0] == 1) || (gridArray[4] == 1)) {
+				//middle (corner)
+				//ans.playerAngle = PI;
+				std::cout << "Front collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[6] == 1) {
+				//left (corner)
+				//ans.playerAngle = -PI / 6;
+				std::cout << "Left collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[2] == 1) {
+				//right (corner)
+				//ans.playerAngle = PI / 6;
+				std::cout << "Right collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[3] == 1) {
+				//left corner (side)
+				//ans.playerAngle = -PI / 3;
+				std::cout << "Left corner collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[1] == 1) {
+				//right corner (side)
+				//ans.playerAngle = PI / 3;
+				std::cout << "Right corner collision at angle " << playAngle << "." << std::endl;
+			}
+		}
+		else if ((playAngle >= 150 && playAngle <= 180) || (playAngle >= -180 && playAngle < -150)) {
+			if ((gridArray[3] == 1) || (gridArray[4] == 1)) {
+				//middle
+				//ans.playerAngle = PI;
+				std::cout << "Front collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[7] == 1) {
+				//left
+				//ans.playerAngle = -PI / 6;
+				std::cout << "Left collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[1] == 1) {
+				//right
+				//ans.playerAngle = PI / 6;
+				std::cout << "Right collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[6] == 1) {
+				//left corner
+				//ans.playerAngle = -PI / 3;
+				std::cout << "Left corner collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[0] == 1) {
+				//right corner
+				//ans.playerAngle = PI / 3;
+				std::cout << "Right corner collision at angle " << playAngle << "." << std::endl;
+			}
+		}
+		else if ((playAngle >= -150 && playAngle < -120)) {
+			if ((gridArray[6] == 1) || (gridArray[4] == 1)) {
+				//middle (corner)
+				//ans.playerAngle = PI;
+				std::cout << "Front collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[8] == 1) {
+				//left (corner)
+				//ans.playerAngle = -PI / 6;
+				std::cout << "Left collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[0] == 1) {
+				//right (corner)
+				//ans.playerAngle = PI / 6;
+				std::cout << "Right collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[7] == 1) {
+				//left corner (side)
+				//ans.playerAngle = -PI / 3;
+				std::cout << "Left corner collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[3] == 1) {
+				//right corner (side)
+				//ans.playerAngle = PI / 3;
+				std::cout << "Right corner collision at angle " << playAngle << "." << std::endl;
+			}
+		}
+		else if ((playAngle >= -120 && playAngle < -60)) {
+			if ((gridArray[7] == 1) || (gridArray[4] == 1)) {
+				//middle
+				//ans.playerAngle = PI;
+				std::cout << "Front collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[5] == 1) {
+				//left
+				//ans.playerAngle = -PI / 6;
+				std::cout << "Left collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[3] == 1) {
+				//right
+				//ans.playerAngle = PI / 6;
+				std::cout << "Right collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[8] == 1) {
+				//left corner
+				//ans.playerAngle = -PI / 3;
+				std::cout << "Left corner collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[6] == 1) {
+				//right corner
+				//ans.playerAngle = PI / 3;
+				std::cout << "Right corner collision at angle " << playAngle << "." << std::endl;
+			}
+		}
+		else { // Between -30 and -60
+			if ((gridArray[8] == 1) || (gridArray[4] == 1)) {
+				//middle (corner)
+				//ans.playerAngle = PI;
+				std::cout << "Front collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[2] == 1) {
+				//left (corner)
+				//ans.playerAngle = -PI / 6;
+				std::cout << "Left collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[6] == 1) {
+				//right (corner)
+				//ans.playerAngle = PI / 6;
+				std::cout << "Right collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[5] == 1) {
+				//left corner (side)
+				//ans.playerAngle = -PI / 3;
+				std::cout << "Left corner collision at angle " << playAngle << "." << std::endl;
+			}
+			else if (gridArray[7] == 1) {
+				//right corner (side)
+				//ans.playerAngle = PI / 3;
+				std::cout << "Right corner collision at angle " << playAngle << "." << std::endl;
+			}
+		}
+	}
+
+	/** Check camera against terrain **/
+
+	// Get player position in pixel coordinates
+	float camPixelX = regularToPixel(camPos.x);
+	float camPixelZ = regularToPixel(camPos.z);
+
+	int camArrayPos = (int)(floor(camPixelZ)*heightMap.width + floor(camPixelX));
+
+	//float tempTestValue = (float) (heightMap.data[camArrayPos]);
+
+	//std::cout << "heightMap data at " << camPixelX << " and " << camPixelZ << " is: " << tempTestValue << std::endl;
+
+	/*if (heightMap.data[camArrayPos] > (compValue-1) && heightMap.data[camArrayPos] < (compValue+1)) {
+	std::cout << "There's actually a value for the data member." << std::endl;
+	}*/
+
+	if (heightMap.data[camArrayPos] == 255) {
+		//std::cout << "There's a cam collision. 1" << std::endl;
+		// There's a collision under the main part of the sphere.
+		ans.camColliding = true;
+	}
+	if (floor(camPixelX) < (heightMap.width - 1)) {
+		if (heightMap.data[camArrayPos + 1] == 255) {
+			//std::cout << "There's a cam collision. 2" << std::endl;
+			// There's a collision under some other part of the sphere.
+			ans.camColliding = true;
+		}
+	}
+	if (floor(camPixelX) > 0) {
+		if (heightMap.data[camArrayPos - 1] == 255) {
+			//std::cout << "There's a cam collision. 3" << std::endl;
+			// There's a collision under some other part of the sphere.
+			ans.camColliding = true;
+		}
+	}
+	// Need to do an if to check for height (whether it's first or last row, as that affects things)
+	if (floor(camPixelZ) > 0) {
+		if (heightMap.data[camArrayPos - heightMap.height] == 255) {
+			//std::cout << "There's a cam collision. 4" << std::endl;
+			// There's a collision under the main part of the sphere.
+			ans.camColliding = true;
+		}
+		if (floor(camPixelX) < (heightMap.width - 1)) {
+			if (heightMap.data[camArrayPos - heightMap.height + 1] == 255) {
+				//std::cout << "There's a cam collision. 5" << std::endl;
+				// There's a collision under some other part of the sphere.
+				ans.camColliding = true;
+			}
+		}
+		if (floor(camPixelX) > 0) {
+			if (heightMap.data[camArrayPos - heightMap.height - 1] == 255) {
+				//std::cout << "There's a cam collision. 6" << std::endl;
+				// There's a collision under some other part of the sphere.
+				ans.camColliding = true;
+			}
+		}
+	}
+
+	if (floor(camPixelZ) < (heightMap.height - 1)) {
+		if (heightMap.data[camArrayPos + heightMap.height] == 255) {
+			//std::cout << "There's a cam collision. 7" << std::endl;
+			// There's a collision under the main part of the sphere.
+			ans.camColliding = true;
+		}
+		if (floor(camPixelX) < (heightMap.width - 1)) {
+			if (heightMap.data[camArrayPos + heightMap.height + 1] == 255) {
+				//std::cout << "There's a cam collision. 8" << std::endl;
+				// There's a collision under some other part of the sphere.
+				ans.camColliding = true;
+			}
+		}
+		if (floor(camPixelX) > 0) {
+			if (heightMap.data[camArrayPos + heightMap.height - 1] == 255) {
+				//std::cout << "There's a cam collision. 9" << std::endl;
+				// There's a collision under some other part of the sphere.
+				ans.camColliding = true;
+			}
+		}
+	}
+
+	/** Check player against spheres **/
+
+	// Iterate through the spheres, check against player
+
+	/*for (int i = 0; i < sphereList.size(); i++) {
+
+	// Calculate distance between centers of spheres
+
+	glm::vec3 vecDist(playerPos - sphereList[i].getPosition());
+	float fDist = vecDist.length;
+
+	// Calculate sum of radii
+
+	float fRadiiSum(playerRadius + sphereList[i].getRadius());
+
+	// Check for collision
+	if (fDist <= fRadiiSum) {
+	ans.index = i;
+	break;
+	}
+
+	}*/
+
+	return ans;
+
+}
+
+float regularToPixel(float cartCoord) {
+
+	return (float)(((((cartCoord + (1200)) / (2400)) /*+ 0.5*/) * 1024));
+
 }

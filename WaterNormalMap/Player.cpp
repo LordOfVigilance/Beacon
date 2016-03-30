@@ -24,7 +24,7 @@ Player::Player(glm::vec3 positionIn, glm::vec2 rotationIn, Model modelIn, Sound*
 {
 	position = positionIn;
 	rotation = rotationIn;
-	scale = 1.0f;
+	scale = 1.5f;
 	speed = 7.0f;
 	speedMultiplier = 1.0f;
 	time = 5.0f;
@@ -141,6 +141,11 @@ Model Player::getModel()
 float Player::getSpeed()
 {
 	return speed * speedMultiplier;
+}
+
+float Player::getScale()
+{
+	return scale;
 }
 
 

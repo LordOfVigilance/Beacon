@@ -23,6 +23,7 @@ public:
 	void translate(glm::vec3 translation);
 	Model getModel();
 	float getSpeed();
+	float getScale();
 	
 
 	void setSpeed(float speedIn);
@@ -39,8 +40,8 @@ private:
 	Model playerModel;
 	glm::vec3 direction;
 
-	const float minSize = 1.0f;
-	const float maxSize = 2.0f;
+	const float minSize = 1.5f;
+	const float maxSize = 4.0f;
 
 	Sound* sounds;
 
