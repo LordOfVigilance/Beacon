@@ -6,6 +6,8 @@ Model::Model(GLchar* fileName) : matrix(1.0f) {
 	std::vector<GLfloat> normals;
 	std::vector<GLushort> indices;
 
+	ply = false;
+
 	loadObjIndexed(fileName, vertices, normals, indices);
 
 	//Create a vertex attribute object
@@ -36,7 +38,8 @@ Model::Model(GLchar* fileName) : matrix(1.0f) {
 
 Model::Model(GLchar* fileName, int fileType) : matrix(1.0f) {
 	GLuint offset = 0;
-	
+	ply = false;
+
 	DaeGeom* vertices = new DaeGeom;
 	DaeGeom* normals = new DaeGeom;
 	DaeGeom* indices = new DaeGeom;
@@ -136,6 +139,8 @@ Model::Model(GLchar* fileName, int fileType) : matrix(1.0f) {
 		//Create a vertex attribute object
 		glGenVertexArrays(1, &vao);
 		glBindVertexArray(vao);
+
+		ply = true;
 
 		//Create a buffer from openGL
 		glGenBuffers(1, &vbo);
@@ -830,6 +835,11 @@ GLuint Model::getVertexCount() {
 
 glm::mat4x4 Model::getMatrix() {
 	return matrix;
+}
+
+bool Model::getPLY()
+{
+	return ply;
 }
 
 glm::mat4x4 Model::getMVP() {

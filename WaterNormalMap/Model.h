@@ -46,6 +46,7 @@ public:
 	GLuint getVIB();
 	GLuint getVertexCount();
 	glm::mat4x4 getMatrix();
+	bool getPLY();
 
 	glm::mat4x4 getMVP();
 	void setVP(glm::mat4x4);
@@ -66,4 +67,6 @@ private:
 	
 	glm::mat4x4 matrix;
 	glm::mat4x4 mvp;
+
+	bool ply;
 };

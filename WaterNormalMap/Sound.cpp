@@ -219,14 +219,14 @@ void Sound::pause(bool x) // x==true will pause, x==false will unpause
 }
 
 
-void Sound::mute(bool x) // x==true will mute, x==false will unmute
+void Sound::mute(bool x, float volume) // x==true will mute, x==false will unmute
 {
 	if (x) {
 		mEngine->setSoundVolume(0.0f);
 		sEngine->setSoundVolume(0.0f);
 	}
 	else {
-		mEngine->setSoundVolume(1.0f);
-		sEngine->setSoundVolume(1.0f);
+		mEngine->setSoundVolume(volume);
+		sEngine->setSoundVolume(volume);
 	}
 }

@@ -16,6 +16,10 @@ Beacon::Beacon(glm::vec3 positionIn, glm::vec2 rotationIn, Model modelIn): model
 	rotation = rotationIn;
 	model.translate(position);
 	model.rotate(rotation.x, glm::vec3(0.0f, 1.0f, 0.0f));
+	if (position.z == 120.0f)
+	{
+		position.x += 140.0f;
+	}
 }
 
 
@@ -32,3 +36,4 @@ Model Beacon::getModel()
 {
 	return model;
 }
+

@@ -46,6 +46,6 @@ public:
 
 	void pause(bool x);
 
-	void mute(bool x);
+	void mute(bool x, float volume);
 };
 

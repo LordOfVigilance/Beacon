@@ -351,12 +351,16 @@ int main(void) {
 	readMarblePositions(&marbleCount, marblePositions);
 	Model plyMarble("Models/marble2.ply", marbleCount, marblePositions);
 
-	Beacon hold = Beacon(glm::vec3(968.0f,0.0f,-895.0f), glm::vec2(), Model("Models/manStatue.ply", PLYMALLOC));
+	Beacon hold = Beacon(glm::vec3(990.0f,18.0f,-950.0f), glm::vec2(3.3f,0.0f), Model("Models/manStatue.ply", PLYMALLOC));
 	beacons.push_back(hold);
-	hold = Beacon(glm::vec3(42.0f, 0.0f, 6.0f), glm::vec2(), Model("Models/womenStatue.ply", PLYMALLOC));
+	hold = Beacon(glm::vec3(960.0f, 20.0f, 330.0f), glm::vec2(PI,0.0f), Model("Models/womenStatue.ply", PLYMALLOC));
 	beacons.push_back(hold);
-	//hold = Beacon(glm::vec3(42.0f, 0.0f, 6.0f), glm::vec2(), Model("Models/manStatue.ply", PLYMALLOC));
-	//beacons.push_back(hold);
+	hold = Beacon(glm::vec3(-390.0f, 35.0f, 1040.0f), glm::vec2(0.0f, 0.0f), Model("Models/Lighthouse.obj"));
+	beacons.push_back(hold);
+	hold = Beacon(glm::vec3(-915.0f, 0.0f, 979.0f), glm::vec2(-0.25f, 0.0f), Model("Models/Ship.obj"));
+	beacons.push_back(hold);
+	hold = Beacon(glm::vec3(-850.0f, 15.0f, 120.0f), glm::vec2(0.0f, 0.0f), Model("Models/trees.ply", PLYMALLOC));
+	beacons.push_back(hold);
 
 	
 	//Model cube("Models/cube.dae", COLLADAE);
@@ -497,8 +501,8 @@ int main(void) {
 			trackLengthLeft = (int)time;
 			sounds.play();
 			if (currentSoundLayers < soundsLayers) {
-				sphereControls[1] += 10.0 / soundsLayers;
-				dmapDepth -= 10.0 / soundsLayers;
+				sphereControls[1] += 10.0f / soundsLayers;
+				dmapDepth -= 10.0f / soundsLayers;
 			}
 			else {
 				currentSoundLayers = soundsLayers - 1;
@@ -603,7 +607,14 @@ int main(void) {
 			Model mHolder = beacons.at(i).getModel();
 			mHolder.setVP(perspectiveMatrix*reflectionViewMatrix);
 			glUniformMatrix4fv(1, 1, GL_FALSE, &mHolder.getMatrix()[0][0]);
-			mHolder.renderPLY();
+			if (mHolder.getPLY())
+			{
+				mHolder.renderPLY();
+			}
+			else
+			{
+				mHolder.render();
+			}
 		}
 
 		//Room
@@ -724,6 +735,19 @@ int main(void) {
 		glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
 		//room.render();
 
+		for (unsigned int i = 0; i < beacons.size(); i++)
+		{
+			Model modelHolder = beacons.at(i).getModel();
+			if (!modelHolder.getPLY())
+			{
+				modelHolder.setVP(perspectiveMatrix*viewMatrix);
+				depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*modelHolder.getMatrix();
+				glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+				modelHolder.render();
+			}
+			
+		}
+
 		/////Ply Files
 
 		glUseProgram(plyColorProgram);
@@ -747,11 +771,14 @@ int main(void) {
 		for (unsigned int i = 0; i < beacons.size(); i++)
 		{
 			Model modelHolder = beacons.at(i).getModel();
-			modelHolder.setVP(perspectiveMatrix*viewMatrix);
-			depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*modelHolder.getMatrix();
-			glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
-			glUniformMatrix4fv(8, 1, GL_FALSE, &modelHolder.getMatrix()[0][0]);
-			modelHolder.renderPLY();
+			if (modelHolder.getPLY())
+			{
+				modelHolder.setVP(perspectiveMatrix*viewMatrix);
+				depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*modelHolder.getMatrix();
+				glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+				glUniformMatrix4fv(8, 1, GL_FALSE, &modelHolder.getMatrix()[0][0]);
+				modelHolder.renderPLY();
+			}		
 		}
 		
 
@@ -1000,7 +1027,7 @@ int main(void) {
 			sounds.stop();
 			if (currentSoundLayers > 0) {
 				dmapDepth += 10.0f / soundsLayers;
-				sphereControls[1] -= 10.0 / soundsLayers;
+				sphereControls[1] -= 10.0f / soundsLayers;
 			}
 			else {
 				currentSoundLayers = 0;
@@ -1501,9 +1528,9 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
 		player->setSpeed(1.4f);
 		if (spherePosition[1] < 0.0f)
-			spherePosition[1] += 0.2;
+			spherePosition[1] += 0.2f;
 		if (spherePosition[1] >= 0.0f)
-			spherePosition[1] += 0.1;
+			spherePosition[1] += 0.1f;
 	}
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_RELEASE) {
 		player->resetSpeed(1.4f);
@@ -1512,9 +1539,9 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
 		player->setSpeed(0.7f);
 		if (spherePosition[1] > -4.0f)
-			spherePosition[1] -= 0.2;
+			spherePosition[1] -= 0.2f;
 		if (spherePosition[1] <= -4.0f)
-			spherePosition[1] -= 0.1;
+			spherePosition[1] -= 0.1f;
 	}
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_RELEASE) {
 		player->resetSpeed(0.7f);
@@ -1523,17 +1550,17 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
 		player->rotatePlayer(-rotateSpeed * deltaTime);
 		if (spherePosition[2] < 3.0f)
-			spherePosition[2] += 0.2;
+			spherePosition[2] += 0.2f;
 		if (spherePosition[2] >= 3.0f)
-			spherePosition[2] += 0.1;
+			spherePosition[2] += 0.1f;
 	}
 	// Strafe left
 	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
 		player->rotatePlayer(+rotateSpeed * deltaTime);
 		if (spherePosition[2] > -3.0f)
-			spherePosition[2] -= 0.2;
+			spherePosition[2] -= 0.2f;
 		if (spherePosition[2] <= -3.0f)
-			spherePosition[2] -= 0.1;
+			spherePosition[2] -= 0.1f;
 	}
 	if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) {
 		player->scalePlayerUp();
@@ -1551,7 +1578,7 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 		{
 			mute = !mute;
 			muteLock = true;
-			sounds.mute(mute);
+			sounds.mute(mute, volume);
 		}
 	}
 	if (glfwGetKey(window, GLFW_KEY_M) == GLFW_RELEASE)
@@ -2256,8 +2283,10 @@ void pause(GLFWwindow* window) {
 
 		glfwSwapBuffers(window);
 
-
-		sounds.setMaster(volume);
+		if (!mute)
+		{
+			sounds.setMaster(volume);
+		}
 	}
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_FALSE);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
