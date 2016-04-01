@@ -353,14 +353,25 @@ int main(void) {
 
 	Beacon hold = Beacon(glm::vec3(990.0f,18.0f,-950.0f), glm::vec2(3.3f,0.0f), Model("Models/manStatue.ply", PLYMALLOC));
 	beacons.push_back(hold);
+	sounds.addBeacon(0, 990.0f, 18.0f, -950.0f,100.0f);
+
 	hold = Beacon(glm::vec3(960.0f, 20.0f, 330.0f), glm::vec2(PI,0.0f), Model("Models/womenStatue.ply", PLYMALLOC));
 	beacons.push_back(hold);
+	sounds.addBeacon(1, 960.0f, 20.0f, 330.0f, 100.0f);
+
 	hold = Beacon(glm::vec3(-390.0f, 35.0f, 1040.0f), glm::vec2(0.0f, 0.0f), Model("Models/Lighthouse.obj"));
 	beacons.push_back(hold);
+	sounds.addBeacon(2, -390.0f, 35.0f, 1040.0f, 100.0f);
+
 	hold = Beacon(glm::vec3(-915.0f, 0.0f, 979.0f), glm::vec2(-0.25f, 0.0f), Model("Models/Ship.obj"));
 	beacons.push_back(hold);
+	sounds.addBeacon(3, -915.0f, 0.0f, 979.0f, 100.0f);
+
 	hold = Beacon(glm::vec3(-850.0f, 15.0f, 120.0f), glm::vec2(0.0f, 0.0f), Model("Models/trees.ply", PLYMALLOC));
 	beacons.push_back(hold);
+	sounds.addBeacon(4, -850.0f, 15.0f, hold.getPosition().z, 100.0f);
+
+
 
 	
 	//Model cube("Models/cube.dae", COLLADAE);
@@ -531,6 +542,32 @@ int main(void) {
 			player.translate(-player.getDirection()*1.0f, false);
 
 		}
+		
+		for (unsigned int i = 0; i < beacons.size(); i++)
+		{
+			glm::vec3 distance = player.getPosition() - beacons[i].getPosition();
+			float distLength = sqrt(pow(distance.x, 2) + pow(distance.z, 2));
+			if (beacons[i].getPlaying())
+			{
+				if (distLength > 100.0f)
+				{
+					beacons[i].setPlaying(false);
+					sounds.stopBeacon(i);
+					sounds.pause(false);
+				}
+			}
+			else
+			{
+				if (distLength <= 100.0f)
+				{
+					std::cout << "started playing" << std::endl;
+					beacons[i].setPlaying(true);
+					sounds.playBeacon(i, volume);
+					sounds.pause(true);
+				}
+			}
+		}
+		sounds.updatePosition(player.getPosition().x, player.getPosition().y, player.getPosition().z, player.getDirection().x, player.getDirection().y, player.getDirection().z);
 		computeMatricesFromInputs(window, &viewMatrix, &player, spherePosition);
 
 
@@ -745,7 +782,6 @@ int main(void) {
 				glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
 				modelHolder.render();
 			}
-			
 		}
 
 		/////Ply Files

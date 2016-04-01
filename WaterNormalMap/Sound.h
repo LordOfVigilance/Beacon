@@ -32,7 +32,7 @@ public:
 
 	void addBeacon(int num, float posx, float posy, float posz, float dist);
 
-	void playBeacon(int num);
+	void playBeacon(int num, float volume);
 
 	void stopBeacon(int num);
 

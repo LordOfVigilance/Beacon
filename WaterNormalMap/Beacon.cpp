@@ -8,6 +8,7 @@ Beacon::Beacon(): model(Model("Models/Monkey.obj"))
 	rotation = glm::vec2();
 	model.translate(position);
 	model.rotate(rotation.x, glm::vec3(0.0f, 1.0f, 0.0f));
+	playing = false;
 }
 
 Beacon::Beacon(glm::vec3 positionIn, glm::vec2 rotationIn, Model modelIn): model(modelIn)
@@ -20,6 +21,7 @@ Beacon::Beacon(glm::vec3 positionIn, glm::vec2 rotationIn, Model modelIn): model
 	{
 		position.x += 140.0f;
 	}
+	playing = false;
 }
 
 
@@ -35,5 +37,15 @@ glm::vec3 Beacon::getPosition()
 Model Beacon::getModel()
 {
 	return model;
+}
+
+bool Beacon::getPlaying()
+{
+	return playing;
+}
+
+void Beacon::setPlaying(bool playingIn)
+{
+	playing = playingIn;
 }
 

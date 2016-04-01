@@ -10,9 +10,12 @@ public:
 	~Beacon();
 	glm::vec3 getPosition();
 	Model getModel();
+	bool getPlaying();
+	void setPlaying(bool playingIn);
 private:
 	glm::vec3 position;
 	glm::vec2 rotation;
 	Model model;
+	bool playing;
 };
 

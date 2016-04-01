@@ -35,7 +35,14 @@ Sound::Sound()
 	bgWater = sEngine->addSoundSourceFromFile("media/sounds/bgWater.wav");
 	grow = sEngine->addSoundSourceFromFile("media/sounds/grow.wav");
 
-	beaconSources.push_back(sEngine->addSoundSourceFromFile("media/sounds/beacon1.mp3"));
+	beaconSources.push_back(sEngine->addSoundSourceFromFile("media/sounds/male.mp3"));
+	beaconSources.push_back(sEngine->addSoundSourceFromFile("media/sounds/female.wav"));
+	beaconSources.push_back(sEngine->addSoundSourceFromFile("media/sounds/lighthouse.mp3"));
+	beaconSources.push_back(sEngine->addSoundSourceFromFile("media/sounds/ship.mp3"));
+	beaconSources.push_back(sEngine->addSoundSourceFromFile("media/sounds/forest.wav"));
+
+
+
 
 	sEngine->play2D(bgWater, true);
 	
@@ -136,12 +143,16 @@ void Sound::addBeacon(int num, float posx, float posy, float posz, float dist) /
 {
 	beacons.push_back(sEngine->play3D(beaconSources[num], vec3df(posx, posy, posz), false, true, true));
 	beacons[num]->setMinDistance(dist);
+	beacons[num]->setMaxDistance(200.0f);
+	beacons[num]->setVolume(1.0f);
+
 }
 
 
-void Sound::playBeacon(int num) // Play beacon
+void Sound::playBeacon(int num, float volume) // Play beacon
 {
 	beacons[num]->setIsPaused(false);
+	beacons[num]->setVolume(volume);
 }
 
 
@@ -193,7 +204,7 @@ void Sound::stopAll()
 	if (sync) {
 		mEngine->setAllSoundsPaused(true);
 
-		for (int i = 0; i < music.size(); i++) {
+		for (unsigned int i = 0; i < music.size(); i++) {
 			music[i]->setVolume(0.0f);
 			music[i]->setPlayPosition(0);
 		}
