@@ -27,3 +27,8 @@ glm::vec3 Beacon::getPosition()
 {
 	return position;
 }
+
+Model Beacon::getModel()
+{
+	return model;
+}

@@ -49,7 +49,7 @@ void main (void) {
 	vec3 reflectionDirection = reflect(-lightDirection, normal);
 	float cosAlpha = clamp( dot( eyeDirection, reflectionDirection), 0,1 );
 	
-	vec3 color = materialAmbientColor + materialDiffuseColor*lightColor*lightPower*cosTheta + materialSpecularColor*lightColor*0.2*pow(cosAlpha,2);
+	vec3 color = materialAmbientColor + materialDiffuseColor*lightColor*lightPower*cosTheta/5 + materialSpecularColor*lightColor*0.2*pow(cosAlpha,2);
 	
 	int i;
 	for (i = 0; i < gl_in.length; i++) {

@@ -21,6 +21,7 @@
 #include "Model.h"
 #include "Player.h"
 #include "Collectible.h"
+#include "Beacon.h"
 #include "Sound.h"
 
 struct {
@@ -90,19 +91,24 @@ GLuint createRTextureClamped(GLchar *);
 GLuint createRGBTexture(GLchar *);
 GLuint createRGBTextureMipMapped(GLchar *);
 void renderSplashScreen(GLuint, GLuint, GLFWwindow*);
-void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Player* player);
+void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Player* player, GLfloat* spherePosition);
 TVAAI checkCollision(glm::vec3, glm::vec3, glm::vec3, ImagePBM, GLfloat*, GLuint);
 float regularToPixel(float cartCoord);
 void markMarble(GLint*, GLfloat*);
 void readMarblePositions(GLint*, GLfloat*);
 void save(glm::vec2);
 glm::vec2 load();
+void pause(GLFWwindow*);
+void unpause();
+void closeProgram();
 
 void printFunction();
 bool locked = true;
 bool lockLock = false;
 bool muteLock = false;
 bool marbleLock = false;
+bool mute = false;
+vector<Beacon> beacons = vector<Beacon>();
 Sound sounds = Sound();
 glm::vec3 currentDirection = glm::vec3(0.0f,0.0f,0.0f);
 const float PI = 3.14159265f;
@@ -111,6 +117,14 @@ DreamClickable* buttonPressed;
 bool mousePressed = false;
 DreamContainer* guiContainer;
 bool drawButtons = true;
+
+int windowWidth, windowHeight;
+GLuint pauseTexture;
+GLuint uiProgram;
+GLuint buttonProgram;
+bool paused = false;
+GLfloat volume = 1.0f;
+GLuint frameBufferName;
 
 glm::vec2 cameraPosition(0.0, 0.0);
 GLint marbleCount = 0;
@@ -153,10 +167,10 @@ int main(void) {
 	GLuint plyColorProgram = createProgram("plyColor.vert", "plyColor.geom", NULL, NULL, "plyColor.frag");
 	GLuint plyUVProgram = createProgram("plyUV.vert", "plyUV.geom", NULL, NULL, "plyUV.frag");
 	GLuint waveProgram = createProgram("wave.vert", "wave.geom", NULL, NULL, "wave.frag");
-	GLuint buttonProgram = createProgram("button.vert", NULL, NULL, NULL, "button.frag");
+	buttonProgram = createProgram("button.vert", NULL, NULL, NULL, "button.frag");
+	uiProgram = createProgram("uiTexture.vert", NULL, NULL, NULL, "uiTexture.frag");
 	GLuint shadowProgram = createProgram("shadowDepth.vert", NULL, NULL, NULL, "shadowDepth.frag");
 	GLuint reflectionProgram = createProgram("reflection.vert", NULL, NULL, NULL, "reflection.frag");
-	GLuint uiProgram = createProgram("uiTexture.vert", NULL, NULL, NULL, "uiTexture.frag");
 
 	int currentSoundLayers = 0;
 	int soundsLayers = sounds.loadSounds(2);
@@ -199,7 +213,6 @@ int main(void) {
 		return false;
 
 	//Multisampled FrameBuffer
-	GLuint frameBufferName;
 	glGenFramebuffers(1, &frameBufferName);
 	glBindFramebuffer(GL_FRAMEBUFFER, frameBufferName);
 	
@@ -315,6 +328,7 @@ int main(void) {
 	GLuint marbleTexture = createRGBTexture("Textures/marble.pbm");
 	GLuint waveTexture = createRGBTextureMipMapped("Textures/waveTexture.pbm");
 	GLuint circleTexture = createRGBTexture("Textures/UI/circle40.pbm");
+	pauseTexture = createRGBTexture("Textures/ui/pauseScreen.pbm");
 
 	GLuint waterCaustic[30];
 	for(int i=0; i<30; i++) {
@@ -336,6 +350,14 @@ int main(void) {
 	Model plyWorld("Models/WorldColor.ply", PLYMALLOC);
 	readMarblePositions(&marbleCount, marblePositions);
 	Model plyMarble("Models/marble2.ply", marbleCount, marblePositions);
+
+	Beacon hold = Beacon(glm::vec3(968.0f,0.0f,-895.0f), glm::vec2(), Model("Models/manStatue.ply", PLYMALLOC));
+	beacons.push_back(hold);
+	hold = Beacon(glm::vec3(42.0f, 0.0f, 6.0f), glm::vec2(), Model("Models/womenStatue.ply", PLYMALLOC));
+	beacons.push_back(hold);
+	//hold = Beacon(glm::vec3(42.0f, 0.0f, 6.0f), glm::vec2(), Model("Models/manStatue.ply", PLYMALLOC));
+	//beacons.push_back(hold);
+
 	
 	//Model cube("Models/cube.dae", COLLADAE);
 	//Model land("Models/Land.dae", COLLADAE);
@@ -405,7 +427,7 @@ int main(void) {
 	GLfloat shadowSliderColor[4] = {0.0f, 0.0f, 1.0f, 0.3f};
 	GLfloat sphereControls[2] = {1.0f, -6.4f};
 	GLfloat sphereControlsSliderColor[4] = {1.0f, 0.0f, 1.0f, 0.3f};
-	GLfloat spherePosition[3] = {3.8f, 0.0f, 0.0f };
+	GLfloat spherePosition[3] = { 3.8f, -2.0f, 0.0f };
 	GLfloat spherePositionSliderColor[4] = {1.0f, 0.0f, 0.0f, 0.3f};
 
 	GLfloat textureSelect = 0.0;
@@ -472,11 +494,14 @@ int main(void) {
 		{
 			currentSoundLayers++;
 			marblePositions[collisions.index * 2] = 10000.0f;
-			trackLengthLeft = time;
+			trackLengthLeft = (int)time;
 			sounds.play();
-			if (currentSoundLayers < 16) {
-				sphereControls[1] += 12.8 / soundsLayers;
-				dmapDepth -= -10.0 / soundsLayers;
+			if (currentSoundLayers < soundsLayers) {
+				sphereControls[1] += 10.0 / soundsLayers;
+				dmapDepth -= 10.0 / soundsLayers;
+			}
+			else {
+				currentSoundLayers = soundsLayers - 1;
 			}
 		}//printf("A collision %u\n", collisions.index);
 
@@ -502,20 +527,20 @@ int main(void) {
 			player.translate(-player.getDirection()*1.0f, false);
 
 		}
-		computeMatricesFromInputs(window, &viewMatrix, &player);
+		computeMatricesFromInputs(window, &viewMatrix, &player, spherePosition);
 
 
 
 		time = (float) glfwGetTime();
 		if(time - lastWindTime > timeUntilWindChange) {
 			lastWindTime = time;
-			timeUntilWindChange = rand()%40 + 20;
+			timeUntilWindChange = (float)(rand()%40 + 20);
 			newWindAngle = rand()%60 - 30;
-			newWindStrength = rand()%2000/100.0f - 10.0;
+			newWindStrength = (float)(rand()%2000/100.0f - 10.0);
 		}
 
 		if(time - lastWindTime < 20) {
-			windRadians = (newWindAngle*(time - lastWindTime)/20 + windAngle)/(2.0*3.1415926);
+			windRadians = (float)((newWindAngle*(time - lastWindTime)/20 + windAngle)/(2.0*3.1415926));
 			//dmapDepth = newWindStrength*(time - lastWindTime)/20 + windStrength*(1 - (time - lastWindTime)/20);
 		} else {
 			windStrength = dmapDepth;
@@ -572,6 +597,14 @@ int main(void) {
 		ship.setVP(perspectiveMatrix*reflectionViewMatrix);
 		glUniformMatrix4fv(1, 1, GL_FALSE, &ship.getMatrix()[0][0]);
 		ship.render();
+
+		for (unsigned int i = 0; i < beacons.size(); i++)
+		{
+			Model mHolder = beacons.at(i).getModel();
+			mHolder.setVP(perspectiveMatrix*reflectionViewMatrix);
+			glUniformMatrix4fv(1, 1, GL_FALSE, &mHolder.getMatrix()[0][0]);
+			mHolder.renderPLY();
+		}
 
 		//Room
 		room.setVP(perspectiveMatrix*reflectionViewMatrix);
@@ -711,6 +744,17 @@ int main(void) {
 		glUniformMatrix4fv(8, 1, GL_FALSE, &plyCube.getMatrix()[0][0]);
 		//plyCube.renderPLY();
 		
+		for (unsigned int i = 0; i < beacons.size(); i++)
+		{
+			Model modelHolder = beacons.at(i).getModel();
+			modelHolder.setVP(perspectiveMatrix*viewMatrix);
+			depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*modelHolder.getMatrix();
+			glUniformMatrix4fv(3, 1, GL_FALSE, &depthBiasMVP[0][0]);
+			glUniformMatrix4fv(8, 1, GL_FALSE, &modelHolder.getMatrix()[0][0]);
+			modelHolder.renderPLY();
+		}
+		
+
 		//PLY Plane
 		plyPlane.setVP(perspectiveMatrix*viewMatrix);
 		depthBiasMVP = depthBiasMatrix*depthProjectionMatrix*depthViewMatrix*plyPlane.getMatrix();
@@ -929,6 +973,8 @@ int main(void) {
 					glUniform2fv(0, 1, &renderable->getSize()[0]);
 					glUniform2fv(1, 1, &renderable->getOffset()[0]);
 					glUniform4fv(2, 1, &renderable->getColor()[0]);
+
+
 					//glDrawArrays(GL_QUADS, 0, 4);
 				}
 			}
@@ -943,24 +989,28 @@ int main(void) {
 
 		glUniform2iv(0, 1, &glm::ivec2(windowWidth, windowHeight)[0]);
 		glUniform2fv(1, 1, &glm::vec2(20, 20)[0]);
+		glUniform1f(3, 0.2f);
 
 		
 		int trackTime = 15000;
 
 		if (time - trackLengthLeft > 15) {
-			trackLengthLeft = time;
+			trackLengthLeft = (int)time;
 			currentSoundLayers--;
 			sounds.stop();
 			if (currentSoundLayers > 0) {
 				dmapDepth += 10.0f / soundsLayers;
-				sphereControls[1] -= 12.8 / soundsLayers;
+				sphereControls[1] -= 10.0 / soundsLayers;
+			}
+			else {
+				currentSoundLayers = 0;
 			}
 		}
 		
 		int layerCount = 16;
 		for(int layerIndex = 0; layerIndex < currentSoundLayers; layerIndex++) {
 			if(layerIndex == layerCount - 1) {
-				float size = trackLengthLeft*20.0/trackTime;
+				float size = trackLengthLeft*20.0f/trackTime;
 				glUniform2fv(1, 1, &glm::vec2(size, size)[0]);
 			}
 
@@ -1368,7 +1418,7 @@ glm::vec2 load() {
 
 
 
-void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Player* player)
+void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Player* player, GLfloat* spherePosition)
 {
 	glm::mat4 ViewMatrix = *cameraView;
 
@@ -1434,25 +1484,26 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	glm::vec3 up = glm::cross(-right, direction);
 
 
+	if (spherePosition[2] > 0.1f)
+		spherePosition[2] -= 0.1f;
+	else if (spherePosition[2] < -0.1f)
+		spherePosition[2] += 0.1f;
+
+
+	if (spherePosition[1] > -1.9f)
+		spherePosition[1] -= 0.1f;
+	else if (spherePosition[1] < -2.1f)
+		spherePosition[1] += 0.1f;
+
+
 	// Move forward
-	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
-		camera.translation += direction * deltaTime * speed;
-	}
-	// Move backward
-	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
-		camera.translation -= direction * deltaTime * speed;
-	}
-	// Strafe right
-	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
-		camera.translation += right * deltaTime * speed;
-	}
-	// Strafe left
-	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
-		camera.translation -= right * deltaTime * speed;
-	}
 	//Player Controls
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
 		player->setSpeed(1.4f);
+		if (spherePosition[1] < 0.0f)
+			spherePosition[1] += 0.2;
+		if (spherePosition[1] >= 0.0f)
+			spherePosition[1] += 0.1;
 	}
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_RELEASE) {
 		player->resetSpeed(1.4f);
@@ -1460,6 +1511,10 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	// Move backward
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
 		player->setSpeed(0.7f);
+		if (spherePosition[1] > -4.0f)
+			spherePosition[1] -= 0.2;
+		if (spherePosition[1] <= -4.0f)
+			spherePosition[1] -= 0.1;
 	}
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_RELEASE) {
 		player->resetSpeed(0.7f);
@@ -1467,10 +1522,18 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	// Strafe right
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
 		player->rotatePlayer(-rotateSpeed * deltaTime);
+		if (spherePosition[2] < 3.0f)
+			spherePosition[2] += 0.2;
+		if (spherePosition[2] >= 3.0f)
+			spherePosition[2] += 0.1;
 	}
 	// Strafe left
 	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
 		player->rotatePlayer(+rotateSpeed * deltaTime);
+		if (spherePosition[2] > -3.0f)
+			spherePosition[2] -= 0.2;
+		if (spherePosition[2] <= -3.0f)
+			spherePosition[2] -= 0.1;
 	}
 	if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) {
 		player->scalePlayerUp();
@@ -1486,10 +1549,10 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 	{
 		if (!muteLock)
 		{
+			mute = !mute;
 			muteLock = true;
-			//Mute Sounds Here
+			sounds.mute(mute);
 		}
-		
 	}
 	if (glfwGetKey(window, GLFW_KEY_M) == GLFW_RELEASE)
 	{
@@ -1528,16 +1591,18 @@ void computeMatricesFromInputs(GLFWwindow * window, glm::mat4 * cameraView, Play
 				markMarble(&marbleCount, marblePositions);
 			}
 		}
-		
     }
 	if (glfwGetKey(window, GLFW_KEY_H) == GLFW_RELEASE)
 	{
 		marbleLock = false;
 
 	}
+	if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS)
+	{
+		std::cout << player->getPosition().x << " " << player->getPosition().z << " " << std::endl;
+	}
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-		glfwTerminate();
-		terminated = true;
+		pause(window);
 	}
 
 	if (locked)
@@ -2090,7 +2155,7 @@ TVAAI checkCollision(glm::vec3 playerPos/*, float playerRadius*/, glm::vec3 play
 
 	// Iterate through the spheres, check against player
 
-	for (int i = 0; i < count; i++) {
+	for (unsigned int i = 0; i < count; i++) {
 
 	// Calculate distance between centers of spheres
 
@@ -2117,4 +2182,102 @@ float regularToPixel(float cartCoord) {
 
 	return (float)(((((cartCoord + (1280)) / (2560)) /*+ 0.5*/) * 1024));
 
+}
+
+void pause(GLFWwindow* window) {
+	double pauseTime = glfwGetTime();
+	DreamContainer* tempContainer = guiContainer;
+	paused = true;
+
+
+	glfwGetWindowSize(window, &windowWidth, &windowHeight);
+
+
+	float containerOffset[2] = { 500.0f / windowWidth, 200.0f / windowHeight };
+	float containerSize[2] = { 100.0f / windowWidth, 200.0f / windowHeight };
+	float containerColor[4] = { 0.0, 0.0, 0.0, 0.5 };
+	guiContainer = new DreamContainer(containerOffset, containerSize, containerColor);
+	guiContainer->addComponent(unpause);
+	guiContainer->addComponent(closeProgram);
+	guiContainer->addComponent(&volume, 0.0f, 1.0f);
+
+
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+
+
+	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+	while (paused) {
+		glfwWaitEvents();
+
+
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, frameBufferName);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+		glBlitFramebuffer(0, 0, 1280, 720, 0, 0, 1280, 720, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+
+
+
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+		glViewport(0, 0, 1280, 720);
+
+
+		//UI
+		glUseProgram(uiProgram);
+
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, pauseTexture);
+
+
+		glUniform2iv(0, 1, &glm::ivec2(windowWidth, windowHeight)[0]);
+		glUniform2fv(1, 1, &glm::vec2(windowWidth, windowHeight)[0]);
+
+
+		glUniform2iv(2, 1, &glm::ivec2(640, 360)[0]);
+		glUniform1f(3, 3.0f);
+		glDrawArrays(GL_QUADS, 0, 4);
+
+
+		//Button
+		glUseProgram(buttonProgram);
+		for (unsigned int i = 0; i < guiContainer->getComponents().size(); i++) {
+			for (int j = guiContainer->getComponents()[i]->getRenderables().size() - 1; j >= 0; j--) {
+				DreamRenderable* renderable = guiContainer->getComponents()[i]->getRenderables()[j];
+				glUniform2fv(0, 1, &renderable->getSize()[0]);
+				glUniform2fv(1, 1, &renderable->getOffset()[0]);
+				glUniform4fv(2, 1, &renderable->getColor()[0]);
+				glDrawArrays(GL_QUADS, 0, 4);
+			}
+		}
+
+
+		glfwSwapBuffers(window);
+
+
+		sounds.setMaster(volume);
+	}
+	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_FALSE);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+
+
+	guiContainer = tempContainer;
+	glfwSetTime(pauseTime);
+	
+	return;
+}
+
+
+void unpause() {
+	paused = false;
+}
+
+
+void closeProgram() {
+	glfwTerminate();
+
+
+	exit(1);
 }
