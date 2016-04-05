@@ -1052,7 +1052,7 @@ int main(void) {
 
 		glUniform2iv(0, 1, &glm::ivec2(windowWidth, windowHeight)[0]);
 		glUniform2fv(1, 1, &glm::vec2(20, 20)[0]);
-		glUniform1f(3, 0.2f);
+		glUniform1f(3, 0.2);
 
 		
 		int trackTime = 15000;

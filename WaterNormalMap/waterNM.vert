@@ -22,7 +22,7 @@ void main(void) {
 	int y = gl_InstanceID >> waterFactorLog;
 	vec2 offset = vec2(x, y) + texOffset;
 
-	vsOut.textureCoord = waterScale*(vertices[gl_VertexID].xz + offset + vec2(0.5)) / (waterFactor*3.0);
+	vsOut.textureCoord = waterScale*(vertices[gl_VertexID].xz + offset + vec2(0.5)) / (waterFactor*1.0);
 	vsOut.foamTextureCoord = waterScale*(vertices[gl_VertexID].xz - offset*0.2 + vec2(0.5)) / (waterFactor*1.0);
 	vsOut.foamTextureCoord2 = waterScale*(vertices[gl_VertexID].xz + offset/2 + vec2(0.5)) / (waterFactor*1.0);
 	vec4 instancePosition = vec4(float(x - waterFactor/2), 0.0, float(y - waterFactor/2), 0.0);
